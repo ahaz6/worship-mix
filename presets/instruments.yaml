@@ -1,0 +1,65 @@
+# Startpunkte, nicht Gesetz! Siehe WORSHIP_MIX.md 12.3
+instruments:
+  lead_vocal_m:
+    hpf: 90
+    peq: [{freq: 300, gain: -3, q: 1.2}, {freq: 4000, gain: 2, q: 1.0}, {freq: 11000, gain: 2, type: shelf}]
+    comp: {ratio: 3, threshold: -18, attack_ms: 10, release_ms: 120}
+    deesser: {freq: 6500}
+    color: blue
+  lead_vocal_w:
+    hpf: 120
+    peq: [{freq: 350, gain: -2, q: 1.2}, {freq: 4000, gain: 1.5, q: 1.0}]
+    comp: {ratio: 3, threshold: -18, attack_ms: 10, release_ms: 120}
+    deesser: {freq: 7500}
+    color: blue
+  bgv:
+    hpf: 150
+    peq: [{freq: 300, gain: -4, q: 1.0}]
+    comp: {ratio: 4, threshold: -20, attack_ms: 8, release_ms: 100}
+    color: cyan
+  speech_headset:
+    hpf: 130
+    peq: [{freq: 250, gain: -3, q: 1.0}, {freq: 3000, gain: 2, q: 1.0}]
+    comp: {ratio: 3, threshold: -20, attack_ms: 5, release_ms: 150}
+    color: white
+  kick:
+    hpf: 35
+    peq: [{freq: 60, gain: 3, q: 1.2}, {freq: 350, gain: -4, q: 1.5}, {freq: 4000, gain: 3, q: 1.5}]
+    color: red
+  snare:
+    hpf: 90
+    peq: [{freq: 200, gain: 2, q: 1.2}, {freq: 600, gain: -2, q: 2}, {freq: 5000, gain: 2, q: 1.0}]
+    comp: {ratio: 4, threshold: -15, attack_ms: 5, release_ms: 80}
+    color: red
+  tom:
+    hpf: 70
+    peq: [{freq: 400, gain: -3, q: 1.2}, {freq: 4000, gain: 2, q: 1.2}]
+    gate: true
+    color: red
+  overhead:
+    hpf: 200
+    peq: [{freq: 400, gain: -2, q: 1.0}, {freq: 12000, gain: 1.5, type: shelf}]
+    color: red
+  bass_di:
+    hpf: 35
+    peq: [{freq: 80, gain: 2, q: 1.0}, {freq: 250, gain: -2, q: 1.2}, {freq: 800, gain: 1.5, q: 1.0}]
+    comp: {ratio: 4, threshold: -18, attack_ms: 15, release_ms: 150}
+    color: green
+  acoustic_guitar_di:
+    hpf: 100
+    peq: [{freq: 250, gain: -3, q: 1.0}, {freq: 5000, gain: 2, q: 1.0}]
+    comp: {ratio: 3, threshold: -18, attack_ms: 10, release_ms: 120}
+    color: yellow
+  electric_guitar:
+    hpf: 90
+    lpf: 9000
+    peq: [{freq: 400, gain: -2, q: 1.0}]
+    color: yellow
+  keys:
+    hpf: 80
+    peq: [{freq: 2500, gain: -1.5, q: 1.0}]
+    color: purple
+  pad:
+    hpf: 150
+    peq: [{freq: 300, gain: -4, q: 0.8}, {freq: 2500, gain: -2, q: 1.0}]
+    color: purple

@@ -1,0 +1,36 @@
+[project]
+name = "worship-mix"
+version = "0.1.0"
+description = "AI co-pilot for worship mixing & mastering - console independent"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.110",
+  "uvicorn[standard]>=0.29",
+  "pydantic>=2.6",
+  "numpy>=1.26",
+  "scipy>=1.12",
+  "soundfile>=0.12",
+  "pyloudnorm>=0.1.1",
+  "python-multipart>=0.0.9",
+  "python-osc>=1.8",
+  "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-asyncio>=0.23", "httpx>=0.27", "ruff>=0.4"]
+mastering = ["matchering>=2.0", "pedalboard>=0.9"]
+stems = ["demucs>=4.0"]
+live = ["sounddevice>=0.4"]
+llm = ["anthropic>=0.40"]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["fastapi.File", "fastapi.Depends"]
