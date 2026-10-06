@@ -60,3 +60,36 @@ class X32Adapter(ConsoleAdapter):
     async def set_channel_name(self, ch: int, name: str) -> None:
         self._guard(f"ch{ch}.name", None, name)
         self.client.send_message(f"/ch/{ch:02d}/config/name", name[:12])
+
+
+# --- Main bus PEQ (Room Tuning) ---------------------------------------------
+# X32 main stereo EQ: /main/st/eq/{1..6}/{type,f,g,q}. Values are normalised floats.
+# TODO(verify): type enum order and Q mapping against the X32 OSC documentation.
+X32_EQ_TYPE = {"low_shelf": 1, "peak": 2, "high_shelf": 4}  # LCut=0, LShv=1, PEQ=2, VEQ=3, HShv=4, HCut=5
+
+
+def x32_freq(f: float) -> float:
+    """20 Hz..20 kHz logarithmic -> 0..1."""
+    return float(math.log(max(20.0, min(20000.0, f)) / 20) / math.log(1000))
+
+
+def x32_gain(db: float) -> float:
+    """-15..+15 dB -> 0..1."""
+    return float((max(-15.0, min(15.0, db)) + 15) / 30)
+
+
+def x32_q(q: float) -> float:
+    """Q 10..0.3 logarithmic -> 0..1 (high Q at 0)."""
+    q = max(0.3, min(10.0, q))
+    return float(1 - math.log(q / 0.3) / math.log(10 / 0.3))
+
+
+def x32_main_peq_messages(filters) -> list[dict]:
+    msgs = [{"address": "/main/st/eq/on", "value": 1}]
+    for i, f in enumerate(filters, start=1):
+        base = f"/main/st/eq/{i}"
+        msgs += [{"address": f"{base}/type", "value": X32_EQ_TYPE[f.type]},
+                 {"address": f"{base}/f", "value": round(x32_freq(f.freq), 4)},
+                 {"address": f"{base}/g", "value": round(x32_gain(f.gain_db), 4)},
+                 {"address": f"{base}/q", "value": round(x32_q(f.q), 4)}]
+    return msgs

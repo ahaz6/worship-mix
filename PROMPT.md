@@ -32,12 +32,13 @@ KONTEXT
    - SICHTBARE UI KOMPLETT ENGLISCH (auch Backend-Tipp-Texte). Mit mir sprichst du Deutsch.
    - Keine neuen Farben oder Grautöne erfinden, nur vorhandene Tokens verwenden.
 
-DIE 5 MODULE (Details in WORSHIP_MIX.md Kap. 6–10)
+DIE 6 MODULE (Details in WORSHIP_MIX.md Kap. 6–10 und 11a)
 1. Mix Analyzer & Coach – Metriken + Tipps (problem/action/why)
 2. Referenz-Mastering-Pipeline – matchering + pedalboard + Loudness-Ziele
 3. Virtual Soundcheck Assistant – Multitrack → Kanal-Vorschläge → Pult
 4. Feedback- & Pegel-Wächter – Echtzeit, WebSocket, Push-Alerts
 5. KI-Szenen- & Preset-Bibliothek – Freitext-Besetzung → Szene
+6. Room Tuning – PA einmessen: Sweep, Mittelung, Auto-EQ (PEQ/GEQ/FIR), RT60/C50, Sub-Abgleich
 
 HARTE REGELN
 - Sicherheitsregeln aus WORSHIP_MIX.md Kap. 15 sind nicht verhandelbar
@@ -117,4 +118,18 @@ Scene-Engine, Export (Pult, CSV/PDF-Kanalliste, JSON).
 ```
 Verbinde Worship Mix mit worship-keys: Setlist mit Tonart/Tempo übernehmen,
 Tempo-Sync für Delays, Song-Snapshots (Ruhig/Build/Voll).
+```
+
+### M9 – Room Tuning fertigstellen
+```
+Lies WORSHIP_MIX.md Kap. 11a (inkl. HouseCurve-Recherche). Die Messkette, Auto-EQ,
+Exporte, Raumakustik und Sub-Abgleich existieren und sind getestet.
+Baue die offenen Punkte aus 11a.5:
+1. Echtzeit-RTA (Rosa Rauschen, 1/3-Oktav, Live + Moving-Mic-Mittelung) im Browser.
+2. Kurven-Editor (max. 20 Punkte, Drag & Drop, Doppeltipp = löschen, Speichern/Reset).
+3. Messungen in SQLite speichern, Vorher/Nachher-Vergleich im Plot.
+4. Mikro-Kalibrierung im UI (Upload, "None").
+5. "Apply to console": PEQ/GEQ über den ConsoleAdapter auf den Main-Bus schreiben
+   (X32 zuerst) – nur mit "Allow writes", Snapshot + Undo, Audit-Log (Kap. 15).
+Erkläre mir dabei, was eine Impulsantwort ist und warum wir Plätze mitteln.
 ```

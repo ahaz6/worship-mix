@@ -9,6 +9,7 @@ KI-Co-Pilot für Mixing & Mastering im Worship-Kontext – **egal welches Mischp
 | 3 | Virtual Soundcheck Assistant | ⚪ geplant |
 | 4 | Feedback- & Pegel-Wächter | 🟡 Detektor-Grundgerüst |
 | 5 | KI-Szenen- & Preset-Bibliothek | 🟡 Presets (YAML) |
+| 6 | Room Tuning (PA einmessen) | 🟢 Messen, Mitteln, Auto-EQ, GEQ/FIR/Export, RT60/C50, Sub-Abgleich |
 
 Pult-Adapter: Mock ✅ · Allen & Heath SQ (MIDI/TCP) 🟡 · Behringer X32 (OSC) 🟡
 

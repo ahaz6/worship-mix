@@ -9,7 +9,7 @@
 ## Inhaltsverzeichnis
 
 1. [Vision & Zielgruppe](#1-vision--zielgruppe)
-2. [Die 5 Module im Überblick](#2-die-5-module-im-überblick)
+2. [Die Module im Überblick](#2-die-module-im-überblick)
 3. [Architektur](#3-architektur)
 4. [Tech-Stack](#4-tech-stack)
 5. [UI-Design: Übernahme von worship-keys](#5-ui-design-übernahme-von-worship-keys)
@@ -19,6 +19,7 @@
 9. [Modul 4 – Feedback- & Pegel-Wächter](#9-modul-4--feedback---pegel-wächter)
 10. [Modul 5 – KI-Szenen- & Preset-Bibliothek](#10-modul-5--ki-szenen---preset-bibliothek)
 11. [Console-Adapter (Pult-Unabhängigkeit)](#11-console-adapter-pult-unabhängigkeit)
+11a. [Modul 6 – Room Tuning (Einmessen der PA)](#11a-modul-6--room-tuning-einmessen-der-pa)
 12. [Audio-Fachwissen (Knowledge Base)](#12-audio-fachwissen-knowledge-base)
 13. [Worship-spezifisches Wissen](#13-worship-spezifisches-wissen)
 14. [KI-Strategie (Regeln + ML + LLM)](#14-ki-strategie-regeln--ml--llm)
@@ -60,7 +61,7 @@
 
 ---
 
-## 2. Die 5 Module im Überblick
+## 2. Die Module im Überblick
 
 | # | Modul | Kontext | Input | Output | Pult nötig? |
 |---|---|---|---|---|---|
@@ -69,6 +70,7 @@
 | 3 | **Virtual Soundcheck** | Live | Multitrack-Aufnahme (USB/Dante) | Gain/HPF/EQ/Dyn-Vorschläge → Pult | ✅ (optional) |
 | 4 | **Feedback- & Pegel-Wächter** | Live (Echtzeit) | Audio-Input (Interface) | Warnungen, optional Auto-Notch | ✅ (optional) |
 | 5 | **Szenen- & Preset-Bibliothek** | Vorbereitung | Besetzung in Textform | Startszene, Presets, Kanalliste | ✅ (optional) |
+| 6 | **Room Tuning** | Einmessen der PA | Sweep-Aufnahmen mehrerer Plätze | Raum-EQ (PEQ/GEQ/FIR), RT60/C50, Sub-Delay | ❌ (Export), ✅ optional |
 
 **Synergien:**
 
@@ -207,12 +209,12 @@ Farbe ist **nie** die einzige Information. Es gibt immer auch Text oder ein Symb
 │ Brand            │ Stage: aktives Modul           │ Console           │
 │ WORSHIP / MIX    │ (Analyzer, Mastering, …)       │ Verbindung, Write │
 │ Modul-Navigation │                                │ Live Guard        │
-│ 01–05            │                                │ Kill-Switch       │
+│ 01–06            │                                │ Kill-Switch       │
 └──────────────────┴────────────────────────────────┴───────────────────┘
   268 px            flexibel, min. 560 px            300 px
 ```
 
-- **Linke Rail:** Statt der Setlist von Worship Keys steht hier die Modul-Navigation (`01 Mix Analyzer` … `05 Scenes`).
+- **Linke Rail:** Statt der Setlist von Worship Keys steht hier die Modul-Navigation (`01 Mix Analyzer` … `06 Room Tuning`).
 - **Rechte Rail:** Pult und Sicherheit. Der Kill-Switch ist **immer** sichtbar.
 - **≤ 1180 px:** Die rechte Rail wandert unter die Stage.
 - **≤ 820 px (Handy/Tablet hochkant):** Alles einspaltig, die Navigation wird horizontal scrollbar.
@@ -238,6 +240,9 @@ Farbe ist **nie** die einzige Information. Es gibt immer auch Text oder ein Symb
 | `ChannelStrip` | Gain/HPF/EQ/Comp, Diff aktuell → Vorschlag | ⏳ |
 | `ConsoleConnector` | Pult wählen, IP, Verbindung testen, „Allow writes“ | 🟡 (UI-Gerüst) |
 | `BandLineupBuilder` | Besetzung für Modul 5 | ⏳ |
+| `ResponsePlot` | Frequenzgang/Phase/GD, Log-Achse, ±3-dB-Band, Blanking-Lücken, Cursor | ✅ |
+| `RoomTuningView` | Modul 6: Measure, Equalize, Room acoustics, Sub alignment | ✅ |
+| `GeqBars` | 31-Band-GEQ-Anzeige | ✅ |
 
 ### 5.8 Sprache (wichtig!)
 **Die sichtbare UI ist komplett Englisch** (Design-Art 12), auch alle Tipp-Texte, die das Backend liefert. Interne Doku wie diese Datei darf Deutsch sein. Code, Dateinamen und Tests sind Englisch. Der Ton ist kurz, ruhig und konkret, z. B. `Feedback at 2512 Hz. Suggested notch −4 dB.` statt `FFT peak detector triggered`.
@@ -506,6 +511,89 @@ Nicht jedes Protokoll unterstützt alles. Deshalb gibt `capabilities()` an, was 
 ### Wert-Mapping
 Jeder Adapter enthält `to_native()`- und `from_native()`-Funktionen (dB ↔ 0..1-Float bzw. 14-bit-Wert, Hz ↔ Index usw.). Diese Mappings brauchen **Unit-Tests mit Tabellenwerten aus der Herstellerdoku**.
 
+## 11a. Modul 6 – Room Tuning (Einmessen der PA)
+
+> Inspiriert von der Analyse der iOS-App **HouseCurve** (housecurve.com, alle 28 Doku-Seiten gelesen: Handbuch, Usage, Tuning, App Notes, Download). Worship Mix implementiert die Konzepte **eigenständig**, ohne Code, Kurven oder Texte zu übernehmen, und erweitert sie für Live-Sound in Kirchen.
+
+### 11a.1 Recherche: Was HouseCurve macht
+
+| Bereich | HouseCurve (laut Doku) |
+|---|---|
+| Plattform | Nur iOS. Gratis-Version plus „Tuning Bundle“ (Abo oder lifetime) für EQ, Echtzeit, Mittelung, Phase/GD, Export |
+| Messsignal | **„Chirp“ als Zeitreferenz + logarithmischer Sinus-Sweep**. Wird der Chirp nicht in ca. 10 s gehört, bricht die Messung ab |
+| Echtzeit | Rosa Rauschen, Live-Ansicht oder Mittelung, **Moving-Mic-Methode** (Mikro symmetrisch durch den Hörbereich bewegen) |
+| Plots | Magnitude (Ziel gelb mit **±3-dB-Band**, Messung grün, gespeicherte Messung grau), **Phase** (gewrappt), **Gruppenlaufzeit**. Ziel für Phase/GD ist immer 0 |
+| Qualität | **Coherence Blanking:** Bereiche unter einer SNR-Schwelle werden ausgeblendet. Fehler „Low measurement coherence“ |
+| Mittelung | **dB-Mittel für Magnitude, Vektor-Mittel für Phase, arithmetisch für Gruppenlaufzeit**. „Remove Delay“ an beim Mitteln, aus beim Zeitabgleich |
+| Messplätze | Schreibtisch 3–5, Wohnzimmer 3–7 Positionen, Mikro immer aufs System gerichtet, Linie links → Mitte → rechts |
+| Mikrofone | iPhone-/iPad-Mikro (Abfall unter 60 Hz und über 16 kHz, wird kompensiert) oder extern (UMIK-1, iMM-6) mit Kalibrierdatei |
+| Zielkurven | Mitgeliefert: B&K, Harman, Car A/B/C. Faustregel: **ca. −1 dB/Oktave**, „flat klingt im Alltag zu hell“. Editor mit max. 20 Punkten, automatischer oder manueller Pegel-Fit |
+| EQ-Generator | **PEQ** (Peak + Shelf) oder **FIR** (Mixed Phase, ca. **250 ms Latenz**). Einstellungen: Frequenzbereich, Max Gain, „Allow only cuts“, Max Filters, Max Q (min. 0,5), Shelf-Q 0,5–1,0. Zeigt die vorhergesagte Kurve und den Max Boost (für Headroom) |
+| Tuning-Regeln | Unter ca. **300 Hz (Schroeder)** dominiert der Raum: Peaks und breite Dips glätten. Darüber dominiert der Lautsprecher: nur breite Bereiche (≥ 1 Oktave) korrigieren. Über ca. **10 kHz** oft gar nicht. Tiefe Dips, die es nur an einem Platz gibt, nicht boosten. Lieber Ziel absenken als boosten. Arbeiten von tief nach hoch in kleinen Schritten |
+| Zeitabgleich | Chirp auf einen Main-Lautsprecher legen (Referenz), Mains allein und Sub allein messen. Phase bei der Crossover-Frequenz angleichen. **1 Wellenlänge bei 100 Hz = 10 ms**, Polarität drehen = ½ Wellenlänge (5 ms) |
+| Crossover | Lautsprecher einzeln ohne Crossover messen, dort trennen, wo sich beide gemessen überlappen. Beispiel: 2.1-System, 100–120 Hz |
+| Export | Biquad-Koeffizienten (a0 = 1, **a1/a2 mit umgedrehtem Vorzeichen**, miniDSP-kompatibel), PEQ-Text (Volumio/HifiBerry/Equalizer APO), Impulsantwort-WAV (32-bit float mono, 500 ms; PEQ-Peak bei Sample 0, FIR-Peak bei 250 ms), Crestron DM NAX direkt |
+| Integrationen | miniDSP (2x4 HD 96 kHz, DDRC-24 48 kHz), Roon (Convolution, im Zweifel 44,1 kHz), Volumio/FusionDSP (= CamillaDSP), Crestron |
+| Dateiformate | Kurvendatei: „Frequenz Gain“ pro Zeile, getrennt durch Leerzeichen, Tab oder Komma, aufsteigend, Interpolation 20 Hz–20 kHz (.txt/.frd). Messung: WAV float32, Peak bei 250 ms, 1 s lang |
+
+### 11a.2 Was Worship Mix daraus macht (und besser für Gemeinden)
+
+| Thema | Worship Mix |
+|---|---|
+| Plattform | Web-App: **jedes Handy, Tablet oder Laptop** als Messgerät, kein Abo |
+| Messsignal | Eigener **Down-Chirp** (8 kHz → 500 Hz) + Log-Sweep 20 Hz–20 kHz (5 s) und Layout mit festen Abständen. Der Down-Chirp ist fast orthogonal zum Up-Sweep und wird deshalb nie mit ihm verwechselt |
+| Chirp-Erkennung | **Zweistufig, robust für hallige Kirchen:** (1) Testsignal grob über den 5-s-Sweep finden (hoher Verarbeitungsgewinn), (2) Chirp nur in einem Fenster von ±250 ms suchen, erster starker Treffer = Direktschall. Entstanden, weil in einer Simulation mit viel Hall der einstufige Ansatz den Sweep statt des Chirps fand |
+| Aufnahme | Browser-Mikro mit **ausgeschalteter Echo-Unterdrückung, Rauschunterdrückung und Auto-Gain** (sonst wäre die Messung wertlos), oder Upload einer Aufnahme (z. B. Messmikro am Pult-Kanal und USB-Recording) |
+| Fehlermeldungen | Englisch und konkret: kein Testsignal gehört, Mikro übersteuert, Aufnahme zu kurz, „Low measurement coherence“ |
+| Coherence Blanking | SNR pro Frequenz aus der **dekonvolvierten Stille vor dem Chirp**, Standard-Schwelle 10 dB. Außerhalb des sauberen Sweep-Bands immer ausgeblendet |
+| Mittelung | Wie oben: dB / Vektor / arithmetisch. Empfehlung **5–8 Sitzplätze** (vorne links/mitte/rechts, Mitte, FOH, hinten, Empore) |
+| Zielkurven | Eigene Startkurven: **Flat, Gentle tilt (−1 dB/Okt), Worship warm, Live band, Speech clarity**. Eigene Kurven als Textdatei hochladbar (gleiches Format wie oben, auch für Mikro-Kalibrierung) |
+| Auto-EQ | Greedy-Platzierung plus gemeinsame Optimierung (least squares). **Unterhalb Schroeder** 1/6-Oktav-Glättung und schmale Filter, **darüber** 1/1-Oktav-Glättung mit Q ≤ 2. Boosts nie schmaler als ⅓ Oktave (Q ≤ 4,3), **Max Boost** separat (Standard 4 dB, live wegen Feedback und Headroom), Cuts bis 9 dB. Nur Cuts als Option, Shelf mit Q 0,5–1,0, Korrektur nur 30 Hz–12 kHz, nie dort, wo ausgeblendet ist |
+| Pult-Ausgabe | **31-Band-GEQ** (ISO-Terzen, 0,5-dB-Schritte) für jedes Pult, PEQ-Schritte für den Main-Bus, **X32-OSC** (`/main/st/eq/1..6`), SQ: Schritt-für-Schritt-Anleitung (Processing ist per MIDI nicht erreichbar) |
+| FIR | **Minimalphase** (Cepstrum-Methode), **0 ms Latenz**, live-tauglich. 250 ms wie bei Mixed Phase wären live unbrauchbar |
+| Export | miniDSP-Biquads, PEQ-Text (Equalizer-APO-Syntax mit Preamp), CamillaDSP-YAML, FIR-WAV (float32), Pult-Anleitung als Text |
+| **Raumakustik (neu)** | **RT60** pro Oktave (Schroeder-Rückwärtsintegration, T20), **C50** (Sprachverständlichkeit: ≥ +3 dB gut, 0…3 mittel, < 0 schlecht), **Schroeder-Frequenz** f = 2000·√(T60/V) aus Raumvolumen. Daraus folgen konkrete Tipps zu Hall-Effekten und Sprache |
+| Sub-Abgleich | Phase bei der Crossover-Frequenz aus einer **zeitlich gefensterten IR** (Direktschall + 2,5 Perioden, mind. 20 ms), damit Nachhall die Phase nicht verfälscht. Mehrdeutigkeit um ganze Perioden wird über die gemessene Ankunftszeit aufgelöst. Ausgabe: Delay Mains/Sub, Hinweis auf Polaritätsdrehung, Sub-Pegel |
+| Crossover | −6-dB-Punkte von Mains (bezogen auf 200 Hz–2 kHz) und Sub (bezogen auf 40–80 Hz), Vorschlag = geometrisches Mittel |
+
+### 11a.3 Ablauf für den Techniker (im UI)
+
+1. **Setup:** Test-Signal herunterladen und über die PA abspielen (USB-Playback am Pult oder Laptop auf einem Stereo-Kanal). **Alle Raum-EQs vorher aus.** Optional das Raumvolumen eingeben.
+2. **Measure:** Platz wählen, „Measure this seat“ tippen, dann Playback starten (die App hört 11 s zu). 5–8 Plätze messen.
+3. **Average:** Plätze anhaken und mitteln.
+4. **Equalize:** Zielkurve wählen (Gottesdienst: *Worship warm*, Predigt-Szene: *Speech clarity*) und Grenzen setzen. Danach Vorhersage, Fehler vorher und nachher, % im ±3-dB-Band, „Lower main by …“ prüfen.
+5. **Export / Pult:** GEQ oder PEQ auf den **Main-Bus** übertragen, nie auf Eingangskanäle. Danach **neu messen** und kontrollieren.
+6. **Room acoustics:** RT60 und C50 ablesen und den Hall-Effekt auf den Vocals danach ausrichten.
+7. **Sub alignment:** „Remove delay“ aus, Chirp auf einen Main-Lautsprecher legen, Mains und Sub einzeln messen, Delay setzen, neu messen.
+
+### 11a.4 Technische Umsetzung
+
+| Datei | Inhalt |
+|---|---|
+| `backend/app/tuning/signals.py` | Testsignal-Layout, Down-Chirp, Log-Sweep, Rosa Rauschen |
+| `backend/app/tuning/measure.py` | Chirp-Erkennung, regularisierte Dekonvolution, IR-Fenster, Magnitude/Phase/GD auf 480-Punkte-Log-Raster (~1/48 Okt.), SNR/Blanking, Mittelung |
+| `backend/app/tuning/targets.py` | Zielkurven, Kurvendatei-Parser, Auto-Fit (200 Hz–2 kHz) |
+| `backend/app/tuning/biquad.py` | RBJ-Cookbook: Peak, Low/High Shelf |
+| `backend/app/tuning/eq.py` | Auto-PEQ, GEQ-31, Minimalphasen-FIR |
+| `backend/app/tuning/acoustics.py` | RT60, C50, Schroeder-Frequenz |
+| `backend/app/tuning/alignment.py` | Sub-Zeitabgleich, Crossover-Vorschlag, Pegelabgleich |
+| `backend/app/tuning/export.py` | miniDSP, PEQ-Text, CamillaDSP, FIR-WAV, Pult-Plan |
+| `backend/app/api/tuning.py` | REST-API (siehe Kap. 16) |
+| `frontend/components/tuning/*` | `RoomTuningView` (4 Tabs), `ResponsePlot` (SVG, Log-Achse, Blanking-Lücken, Cursor, Toleranzband) |
+| `frontend/lib/recorder.ts` + `public/worklets/capture-processor.js` | Mikrofon-Aufnahme über AudioWorklet |
+
+**Plot-Farben (nur Suite-Tokens):** Ziel und ±3-dB-Band `--wm-violet-bright` (gestrichelt), Messung `--wm-success`, Referenz `--wm-text-faint`, Vorhersage `--wm-blue`, Korrektur `--wm-warning`.
+
+**Tests:** 13 Tests mit simuliertem Raum (Direktschall + exponentieller Nachhall + Raummode). Geprüft werden Chirp-Zeitpunkt (±2 ms), Mode-Erkennung, Fehler bei Stille/Clipping, Ankunftszeit mit separatem Chirp-Lautsprecher, dB-Mittelung, Auto-EQ (Mode-Cut, Fehler halbiert, > 95 % im Band), Limits bei „Cuts only“, GEQ- und FIR-Genauigkeit (±1 dB, Minimalphase), Exportformate, Kurvenparser, RT60 (±15 %), Sub-Delay (±0,5 ms) und der komplette API-Ablauf.
+
+### 11a.5 Offene Punkte (TODO)
+- Echtzeit-RTA mit Rosa Rauschen und Moving Mic im Browser (das Signal `pink-noise.wav` existiert schon).
+- Kurven-Editor mit Drag & Drop (max. 20 Punkte) im UI. Upload per Datei geht bereits.
+- Messungen dauerhaft speichern (SQLite) und Vorher/Nachher-Vergleich.
+- Mikro-Kalibrierung im UI. Die API `/api/tuning/mic-calibration` existiert schon.
+- Direkt ans Pult schreiben über den ConsoleAdapter, mit Snapshot und Undo (X32 zuerst).
+- Testen mit echtem Messmikro in deiner Gemeinde; die Grenzwerte (SNR-Schwelle, Q-Grenzen) danach feinjustieren.
+
 ---
 
 ## 12. Audio-Fachwissen (Knowledge Base)
@@ -645,6 +733,17 @@ GET    /api/presets                 Preset-Bibliothek
 WS     /ws/live                     Meter, Spektrum, Feedback-Alerts (JSON-Frames, ~20 fps)
 POST   /api/live/start | /stop      Wächter starten/stoppen
 POST   /api/live/killswitch
+
+GET    /api/tuning/test-signal.wav  Chirp + Sweep (float32, 48 kHz)
+GET    /api/tuning/pink-noise.wav   Rosa Rauschen (RTA)
+GET    /api/tuning/targets          Zielkurven (+ POST: eigene Kurve hochladen)
+POST   /api/tuning/mic-calibration  Kalibrierdatei setzen/entfernen
+POST   /api/tuning/measure          Aufnahme → Messung + Raumakustik
+GET    /api/tuning/measurements     Liste (DELETE /measurements/{id})
+POST   /api/tuning/average          Messungen mitteln
+POST   /api/tuning/equalize         Auto-EQ, GEQ, Vorhersage, Pult-Plan
+POST   /api/tuning/export           peq_text | minidsp | camilladsp | fir_wav | console
+POST   /api/tuning/align            Sub-Zeitabgleich, Crossover, Pegel
 ```
 
 ---
@@ -678,6 +777,7 @@ Preset(id, instrument, mic, person?, params_json, version)
 | **M6 – Live-Wächter** | Modul 4 + Push-Alerts | Feedback-Schutz |
 | **M7 – Szenen** | Modul 5 + LLM | Sonntags-Vorbereitung in 2 Minuten |
 | **M8 – worship-keys-Integration** | Setlist/Tonart/Tempo-Sync | Ökosystem |
+| **M9 – Room Tuning** 🟡 | Modul 6: Messen, Mitteln, Auto-EQ, GEQ/FIR/Export, RT60/C50, Sub-Abgleich ✅. Offen: RTA, Kurven-Editor, Persistenz, Direkt-Schreiben ans Pult | PA klingt in jedem Raum gut |
 
 **Lernpfad für Agi (Junior Dev):** M0 → M1 selbst mitbauen (FFT, LUFS verstehen), dann M4 (Netzwerkprotokolle) und erst danach Echtzeit (M6), weil das am schwierigsten ist.
 
@@ -715,6 +815,16 @@ Preset(id, instrument, mic, person?, params_json, version)
 | NRPN | Non-Registered Parameter Number (MIDI) |
 | OSC | Open Sound Control (Netzwerkprotokoll) |
 | Ring-out | Gezieltes Finden von Feedback-Frequenzen vor der Veranstaltung |
+| Sweep | Sinuston, der logarithmisch von 20 Hz bis 20 kHz gleitet, das Messsignal |
+| Chirp | Sehr kurzer Gleitton als Zeitreferenz (bei Worship Mix abwärts, 8 kHz → 500 Hz) |
+| Impulsantwort (IR) | Wie der Raum plus PA auf einen einzelnen „Klick“ reagiert, daraus folgt alles andere |
+| Gruppenlaufzeit | Wann welche Frequenz am Mikro ankommt (ms) |
+| Coherence Blanking | Ausblenden von Bereichen mit zu wenig Signal-Rausch-Abstand |
+| Zielkurve / House Curve | Gewünschte Klangbalance, z. B. leicht mehr Bass als Höhen |
+| RT60 | Nachhallzeit: Dauer, bis der Schall um 60 dB abgefallen ist |
+| C50 | Verhältnis früher (0–50 ms) zu später Energie, Maß für Sprachverständlichkeit |
+| Schroeder-Frequenz | Grenze, unterhalb der Raummoden dominieren: f = 2000·√(RT60/V) |
+| Minimalphase-FIR | FIR-Filter ohne zusätzliche Latenz |
 
 ---
 
@@ -729,5 +839,8 @@ Preset(id, instrument, mic, person?, params_json, version)
 - librosa: https://librosa.org
 - ITU-R BS.1770 (Loudness): https://www.itu.int/rec/R-REC-BS.1770
 - EBU R128: https://tech.ebu.ch/publications/r128
+- HouseCurve (Analyse für Modul 6): https://housecurve.com · Handbuch https://housecurve.com/help · Tuning https://housecurve.com/docs/tuning/equalization · Dateiformate https://housecurve.com/docs/manual/file_formats
+- RBJ Audio EQ Cookbook (Biquads): https://www.w3.org/TR/audio-eq-cookbook/
+- Farina, A. (2000): Simultaneous measurement of impulse response and distortion with a swept-sine technique (AES)
 - Marktüberblick KI-Mixing/Mastering 2026: https://www.roexaudio.com/blog/best-ai-mixing-and-mastering-services-compared-(2026) · https://mixinggpt.com/blog/best-ai-mixing-plugins-2026
 - Design-Vorlage: https://github.com/ahaz6/worship-keys

@@ -18,10 +18,11 @@ import { Status } from "@/components/common/status";
 import { FeedbackAlert } from "@/components/mix/feedback-alert";
 import { LevelMeter } from "@/components/mix/level-meter";
 import { TipCard } from "@/components/mix/tip-card";
+import { RoomTuningView } from "@/components/tuning/room-tuning-view";
 import { type Analysis, analyzeFile } from "@/lib/api";
 import { formatDb } from "@/lib/meter";
 
-type ModuleId = "analyzer" | "mastering" | "soundcheck" | "live" | "scenes";
+type ModuleId = "analyzer" | "mastering" | "soundcheck" | "live" | "scenes" | "tuning";
 
 const MODULES: { id: ModuleId; title: string; hint: string; action: string; state: "ready" | "planned" }[] = [
   { id: "analyzer", title: "Mix Analyzer", hint: "Measure and coach", action: "Analyze a mix", state: "ready" },
@@ -29,6 +30,7 @@ const MODULES: { id: ModuleId; title: string; hint: string; action: string; stat
   { id: "soundcheck", title: "Soundcheck", hint: "Channel suggestions", action: "Load a soundcheck", state: "planned" },
   { id: "live", title: "Live Guard", hint: "Feedback and levels", action: "Start listening", state: "planned" },
   { id: "scenes", title: "Scenes", hint: "Lineup to start scene", action: "Describe the band", state: "planned" },
+  { id: "tuning", title: "Room Tuning", hint: "Measure and correct the PA", action: "Measure a seat", state: "ready" },
 ];
 
 const TARGETS = [
@@ -75,7 +77,13 @@ export function WorshipMixApp() {
           </div>
         </header>
         <div className="stage-body">
-          {active === "analyzer" ? <AnalyzerView /> : <PlannedView title={current.title} action={current.action} />}
+          {active === "analyzer" ? (
+            <AnalyzerView />
+          ) : active === "tuning" ? (
+            <RoomTuningView />
+          ) : (
+            <PlannedView title={current.title} action={current.action} />
+          )}
         </div>
       </main>
 
