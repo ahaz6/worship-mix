@@ -20,6 +20,7 @@
 10. [Modul 5 – KI-Szenen- & Preset-Bibliothek](#10-modul-5--ki-szenen---preset-bibliothek)
 11. [Console-Adapter (Pult-Unabhängigkeit)](#11-console-adapter-pult-unabhängigkeit)
 11a. [Modul 6 – Room Tuning (Einmessen der PA)](#11a-modul-6--room-tuning-einmessen-der-pa)
+11b. [Modul 3 – Instruments (Instrument & Mix Tuning)](#11b-modul-3--instruments-instrument--mix-tuning)
 12. [Audio-Fachwissen (Knowledge Base)](#12-audio-fachwissen-knowledge-base)
 13. [Worship-spezifisches Wissen](#13-worship-spezifisches-wissen)
 14. [KI-Strategie (Regeln + ML + LLM)](#14-ki-strategie-regeln--ml--llm)
@@ -67,7 +68,7 @@
 |---|---|---|---|---|---|
 | 1 | **Mix Analyzer & Coach** | Studio + Live-Mitschnitt | Mix/Stems (WAV/FLAC/MP3) | Metriken + konkrete Tipps | ❌ |
 | 2 | **Referenz-Mastering** | Studio / Release | Track + Referenz | Master-Dateien (mehrere Loudness-Ziele) | ❌ |
-| 3 | **Virtual Soundcheck** | Live | Multitrack-Aufnahme (USB/Dante) | Gain/HPF/EQ/Dyn-Vorschläge → Pult | ✅ (optional) |
+| 3 | **Instruments** (Instrument & Mix Tuning, Kap. 11b) | Soundcheck + Live | Demo, Upload oder Live-USB | Gain/HPF/EQ/Gate/Comp/De-Esser/FX pro Kanal, Fader, Sidechain, Master → Pult | ✅ (optional) |
 | 4 | **Feedback- & Pegel-Wächter** | Live (Echtzeit) | Audio-Input (Interface) | Warnungen, optional Auto-Notch | ✅ (optional) |
 | 5 | **Szenen- & Preset-Bibliothek** | Vorbereitung | Besetzung in Textform | Startszene, Presets, Kanalliste | ✅ (optional) |
 | 6 | **Room Tuning** | Einmessen der PA | Sweep-Aufnahmen mehrerer Plätze | Raum-EQ (PEQ/GEQ/FIR), RT60/C50, Sub-Delay | ❌ (Export), ✅ optional |
@@ -360,7 +361,7 @@ Input-Track ─► Vorprüfung (Clipping? Headroom? Sample-Rate?)
 
 ---
 
-## 8. Modul 3 – Virtual Soundcheck Assistant
+## 8. Modul 3 – Virtual Soundcheck Assistant (Ursprungskonzept → umgesetzt in Kap. 11b)
 
 ### Ziel
 Aus einer Soundcheck-Aufnahme (Multitrack) **pro Kanal** sinnvolle Einstellungen vorschlagen und nach Bestätigung ans Pult senden.
@@ -587,12 +588,100 @@ Jeder Adapter enthält `to_native()`- und `from_native()`-Funktionen (dB ↔ 0..
 **Tests:** 13 Tests mit simuliertem Raum (Direktschall + exponentieller Nachhall + Raummode). Geprüft werden Chirp-Zeitpunkt (±2 ms), Mode-Erkennung, Fehler bei Stille/Clipping, Ankunftszeit mit separatem Chirp-Lautsprecher, dB-Mittelung, Auto-EQ (Mode-Cut, Fehler halbiert, > 95 % im Band), Limits bei „Cuts only“, GEQ- und FIR-Genauigkeit (±1 dB, Minimalphase), Exportformate, Kurvenparser, RT60 (±15 %), Sub-Delay (±0,5 ms) und der komplette API-Ablauf.
 
 ### 11a.5 Offene Punkte (TODO)
-- Echtzeit-RTA mit Rosa Rauschen und Moving Mic im Browser (das Signal `pink-noise.wav` existiert schon).
+- ~~Echtzeit-RTA~~ ✅ (11a.6) · ~~Direkt ans Pult~~ ✅ (11a.7)
 - Kurven-Editor mit Drag & Drop (max. 20 Punkte) im UI. Upload per Datei geht bereits.
 - Messungen dauerhaft speichern (SQLite) und Vorher/Nachher-Vergleich.
 - Mikro-Kalibrierung im UI. Die API `/api/tuning/mic-calibration` existiert schon.
-- Direkt ans Pult schreiben über den ConsoleAdapter, mit Snapshot und Undo (X32 zuerst).
 - Testen mit echtem Messmikro in deiner Gemeinde; die Grenzwerte (SNR-Schwelle, Q-Grenzen) danach feinjustieren.
+
+### 11a.6 Echtzeit-Analyse mit Rosa Rauschen (Tab „Real time“)
+
+**Recherche:**
+- Ein **RTA** ist eine Einkanal-Messung: Er zeigt nur, was im Signal steckt, ohne Phase und ohne Laufzeit. Üblich sind Terzbänder (1/3 Oktave), Profi-Tools gehen bis 1/48. Die **Mittelung** (Integrationszeit) beruhigt die Anzeige. Rosa Rauschen hat **gleiche Energie pro Oktave**, deshalb bedeutet eine waagrechte RTA-Linie ein lineares System.
+- Eine **Transfer-Funktion** (Zweikanal-FFT, wie bei Smaart) vergleicht Messung und Referenz und liefert damit Pegel, Phase und Laufzeit. **Kohärenz** zeigt, ob gerade Störgeräusch, Nachhall oder Reflexionen die Messung verfälschen.
+- Bei Tiefbass schwankt der RTA-Wert stark (5 dB und mehr), deshalb ist lange Mittelung nötig.
+
+**Umsetzung:**
+- **Periodisches Rosa Rauschen:** Periode 65 536 Samples (1,365 s bei 48 kHz). Jede FFT-Linie hat exakt 1/f-Leistung mit zufälliger Phase. Weil die App die Sequenz genau kennt, misst sie eine **echte Transfer-Funktion ohne Referenzkabel**, auch wenn ein anderes Gerät das Rauschen abspielt.
+- **Pro Periode:** Zirkuläre Kreuzkorrelation ergibt die Verzögerung, dann H = Y·X*/|X|², dann wird die Laufzeit herausgerechnet und **vektoriell gemittelt**. Kohärenz γ² = |⟨H⟩|² / ⟨|H|²⟩. Unter 50 % wird ausgeblendet.
+- **RTA-Modus:** FFT 8192 mit Hann-Fenster und 50 % Überlappung, Bänder 1/1 bis 1/12 Oktave.
+- **Mittelung:** *Fast* 0,125 s, *Slow* 1 s, *Moving mic* = unendlich (kumulativ, zum Herumlaufen).
+- **Mikrofon:** Aufnahme per AudioWorklet bei 48 kHz, ohne Sprachverarbeitung. **Auf Handys nur über HTTPS** (`npm run dev:https`).
+- **Wiedergabe:** „Play pink noise“ blendet sanft ein (1 s), damit es keinen Knall auf der PA gibt.
+- **„Save as measurement“:** Die Transfer-Funktion wird als Messung gespeichert (Kohärenz → SNR) und kann direkt in den Auto-EQ.
+- **Validierung:** Rosa Rauschen durch einen simulierten Raum (+6 dB bei 100 Hz, −4 dB Shelf ab 5 kHz) als virtuelles Mikro in Chromium. Die App zeigt beides exakt, mit 99 % Kohärenz nach 8 Perioden.
+
+### 11a.7 EQ direkt ans Pult
+- `POST /api/tuning/equalize` liefert zusätzlich `console_changes` (Main-PEQ-Bänder 1–6 plus GEQ).
+- „Send PEQ to main“ öffnet die Prüfansicht. **X32:** Werte senden (mit Rampe, Snapshot, Undo). **SQ / ohne Pult:** Abhak-Liste.
+- Ablauf im Backend: Vorher wird jeder Zielwert per OSC-Abfrage gelesen (Snapshot), dann werden kontinuierliche Werte (Gain, Threshold, Trim) in 6 Schritten über 0,6 s gefahren und alles im Audit-Log festgehalten. `undo` stellt den Snapshot wieder her, ebenfalls mit Rampe.
+- Getestet gegen einen **simulierten X32 im Netzwerk** (UDP-Server, der wie ein X32 antwortet).
+
+---
+
+## 11b. Modul 3 – Instruments (Instrument & Mix Tuning)
+
+> Ersetzt das frühere Konzept „Virtual Soundcheck“ (Kap. 8) und erweitert es um Live-Analyse und Gesamtmix.
+
+### 11b.1 Recherche: Wie man es richtig macht
+- **Intelligent Music Production** (Reiss, De Man et al., QMUL): Automatisches Mischen nutzt **Merkmale aus dem Audio** (Lautheit, Spektrum, Maskierung), um Gain, EQ, Dynamik und Panning zu steuern. Kreuzadaptive Verfahren, bei denen ein Kanal die Bearbeitung eines anderen beeinflusst, entschärfen **Maskierung**. In Studien schneidet regelbasiertes Wissen gut ab, wenn es als **Startpunkt** dient und der Mensch entscheidet. Genau so arbeitet Worship Mix.
+- **Sidechain in Gemeinden:** Typische Konflikte sind *Gesang vs. Pads*, *Kick vs. Bass* und *Keys vs. Tracks*. Ducking ist der „Platz-machen-Knopf“.
+- **Pult-Steuerung:** Das **SQ-MIDI-Protokoll** (Firmware 1.6, TCP-Port 51325) kann nur **Szenen, Soft Keys, Mutes, Pegel, Pan und Routing**, kein Processing. Das **X32/M32** lässt sich per **OSC** (UDP 10023) fast vollständig steuern (Gain/Trim, HPF, 4-Band-EQ, Gate, Kompressor inkl. Key-Source, Main-EQ). Daraus folgt: X32 kann direkt senden, das SQ bekommt eine Abhak-Liste.
+- **Audio-Zugang:** Beide Pulte haben **32×32 USB**. Am FOH-Laptop liegen damit alle Kanäle einzeln vor (meist *nach dem Preamp, vor dem Fader*). Deshalb schlägt die App **Start-Faderpositionen** vor, statt die aktuellen Fader zu bewerten.
+
+### 11b.2 Ablauf
+1. **Quelle:** Demo-Band (synthetisch, ohne Hardware), Upload (Mehrspur-WAV oder eine Datei pro Kanal) oder Live (USB-Interface, Ringpuffer 8 s, Analyse alle 3 s).
+2. **Kanal-Zuordnung:** Name → Instrument (wird automatisch aus dem Namen erkannt) → Pult-Kanal.
+3. **Pro Kanal:**
+   - Pegelstatistik (Peak, lauter Pegel P95, Rauschboden P10, Crest Factor)
+   - Langzeit-Spektrum (Welch) mit Steigung (Tilt) und Abweichungen in Bändern (Mulm, Box, Präsenz, Air, Härte, Rumpeln)
+   - Resonanzen nur bei Drums, Percussion und Sprache (bei tonalen Instrumenten sind schmale Spitzen Noten, kein Problem)
+   - Schläge und Abklingzeit für Gate und Release
+   - Zischlaute (Sibilanz) für den De-Esser
+4. **Gesamtmix:**
+   - Lautheit relativ zum Lead-Vocal → Start-Fader
+   - Maskierung pro Oktavband auf dem ausbalancierten Mix (beide Instrumente aktiv, Pegel innerhalb von 6 dB, Band gehört zum Hauptbereich beider)
+   - Sidechain-Regeln
+   - Master-Kette
+5. **Pult:** Vorschläge werden zu **Changes** (konsolenneutral) und dann zu X32-OSC oder zur SQ-Abhak-Liste.
+
+### 11b.3 Regeln für die Einstellungen
+| Einstellung | Regel |
+|---|---|
+| Gain | Ziel-Peak **−12 dBFS**. Trim = −12 − Peak (±18 dB). Clipping wird immer als kritisch gemeldet. Gain **nur im Soundcheck**, nie im Gottesdienst |
+| HPF | Profil-Startwert, angehoben bis 0,8 × (Frequenz, ab der 0,5 % der Energie liegen), begrenzt auf den Profil-Bereich |
+| EQ (max. 4) | Resonanz: −2…−6 dB, Q 6. Mulm > +3 dB: breiter Cut (Q 1,2). Box/nasal: −3 dB (Q 1,5). Härte (nur bei tonalen Instrumenten, **nie bei Drums**, sonst geht der Anschlag verloren): −2,5 dB bei 3,2 kHz. Fehlende Präsenz: +2 dB. Fehlende Air (Vocals/Strings): +2 dB Shelf. **Cuts vor Boosts** |
+| Gate | Nur, wenn Schlag minus Übersprechen ≥ 10 dB, sonst „Gate aus / Mikro näher“. Threshold = Übersprechen + 0,4 × (Schlag − Übersprechen). Release = gemessene Abklingzeit (60–800 ms). Range, Attack, Hold aus dem Profil |
+| Kompressor | Threshold so, dass die Ziel-Gain-Reduction bei lauten Passagen (P95) erreicht wird: T = L95 − GR·R/(R−1). Attack bei hohem Crest Factor langsamer (Punch bleibt). Drum-Release aus der Abklingzeit |
+| De-Esser | Spitzenfrequenz im Profilbereich bei > +2 dB über der Steigung, 3–6 dB Reduktion |
+| Hall/Delay | Profil-Länge, **bei RT60 > 1,6 s eine Stufe kürzer**. Delay = 1/4-Note aus BPM |
+| Fader | Profil-Ziel in LU relativ zum Lead-Vocal (z. B. Kick −5, Bass −5, BGV −6, Keys −8, A-Gitarre −9, Pad −15) |
+| Sidechain | Kick → Bass (4:1, 1 ms / 80 ms, ~3 dB), Lead → Keys/Pad/Gitarren (dyn. EQ −3 dB bei 2,5 kHz, alternativ Kompressor 2:1), Sprache → Pad/Tracks/Keys (4:1, 20 / 600 ms, ~8 dB) |
+| Master | Bus-Kompressor 2:1, 30/150 ms, 1–2 dB GR. Breiter Master-EQ max. ±2 dB gegen die Zielkurve. Limiter −1 dBTP. Stream-Bus −16 LUFS |
+
+### 11b.4 Instrument-Profile (27)
+Lead-Vocal m/w, BGV, Chor, Sprache/Headset, Kick, Snare, Tom 1–3, HiHat, Overheads, Bass, A-Gitarre, E-Gitarre, Keys, Aux Keys, Piano, Orgel, Pad, Violine, Cello, Bläser, Cajon, Percussion, Sample Pad, Tracks.
+Jedes Profil enthält HPF-Startwert und Bereich, Grundton-, Mulm-, Box-, Präsenz- und Air-Band, optional LPF, Gate, Kompressor und De-Esser, Hall, Delay, Pan, Ziel-Lautheit, Rolle (für Sidechain und Priorität) sowie Praxis-Tipps. Datei: `backend/app/instruments/profiles.py`.
+
+### 11b.5 Validierung (Demo-Band mit eingebauten Fehlern)
+Gefunden werden:
+- Snare-Ring 328 Hz (geplant 330), Cut −6 dB, Q 6
+- Gate-Threshold zwischen Übersprechen und Schlag
+- Kick behält seinen Klick
+- Mulm auf Keys und Pad
+- De-Esser bei 7,5 kHz
+- A-Gitarre +8,5 dB Gain (absichtlich zu leise)
+- Hall wird bei RT60 1,8 s kürzer, Delay 500 ms bei 120 BPM
+- Kick → Bass Sidechain mit Key-Kanal
+- Sprache duckt das Pad um ≥ 6 dB
+
+Alle Punkte sind in `backend/tests/test_instruments.py` als Tests abgesichert.
+
+### 11b.6 Grenzen (ehrlich)
+- Regeln sind **Startpunkte**. Echte Mikrofone, Räume und Musiker weichen ab. Nach dem ersten echten Soundcheck sollten die Schwellen nachjustiert werden.
+- Die Fader-Vorschläge setzen *Pre-Fader*-USB-Abgriffe voraus.
+- Für Live-USB muss das Backend **nativ auf dem Laptop** laufen (PortAudio), nicht in Docker.
+- X32-Adressen und -Wertebereiche sind als `TODO(verify)` markiert und müssen vor dem ersten echten Einsatz gegen Maillots OSC-Doku geprüft werden. Erst danach am echten Pult senden.
 
 ---
 
@@ -744,6 +833,22 @@ POST   /api/tuning/average          Messungen mitteln
 POST   /api/tuning/equalize         Auto-EQ, GEQ, Vorhersage, Pult-Plan
 POST   /api/tuning/export           peq_text | minidsp | camilladsp | fir_wav | console
 POST   /api/tuning/align            Sub-Zeitabgleich, Crossover, Pegel
+GET    /api/tuning/pink-period.f32  Eine Periode periodisches Rosa Rauschen (Referenz)
+POST   /api/tuning/import-response  Echtzeit-Transfer-Funktion als Messung speichern
+
+GET    /api/consoles/kinds          Pult-Typen
+POST   /api/consoles/connect        {kind, host} → session (read-only)
+POST   /api/consoles/{sid}/writes   ?enabled=true|false
+POST   /api/consoles/{sid}/plan     Changes → Schritte / OSC-Nachrichten (Vorschau)
+POST   /api/consoles/{sid}/apply    Snapshot → Rampe → Audit (409 wenn read-only)
+POST   /api/consoles/{sid}/undo     Letzten Snapshot wiederherstellen
+GET    /api/consoles/{sid}/audit    Protokoll
+
+GET    /api/instruments/profiles    27 Instrument-Profile
+GET    /api/instruments/devices     Audio-Eingänge (USB vom Pult)
+POST   /api/instruments/demo        Demo-Band analysieren
+POST   /api/instruments/analyze     Upload (Mehrspur-WAV oder Dateien) + Mapping
+POST   /api/instruments/live/start  Live-Analyse starten (GET live/latest, POST live/stop)
 ```
 
 ---
@@ -772,12 +877,12 @@ Preset(id, instrument, mic, person?, params_json, version)
 | **M1 – Analyzer** | Modul 1 komplett (ohne Demucs), Tipp-Engine, Report | Erster echter Nutzen |
 | **M2 – Mastering** | Modul 2 inkl. Batch & A/B | Releases mastern |
 | **M3 – Stems** | Demucs-Integration, Maskierungsanalyse | Tiefere Analyse |
-| **M4 – Pult** | X32-Adapter (voll), SQ-Adapter (Mutes/Fader/Szenen), Snapshot/Undo | Pult-Steuerung |
-| **M5 – Soundcheck** | Modul 3 | Live-Unterstützung |
+| **M4 – Pult** ✅ | X32 per OSC (Query, Rampe, Snapshot, Undo, Audit), SQ als Abhak-Liste, Übungs-Pult | Pult-Steuerung |
+| **M5 – Instruments** ✅ | Modul 3: Kanal- und Mix-Analyse, Sidechain, Master, Live-USB, Upload, Demo, Senden ans Pult | Live-Unterstützung |
 | **M6 – Live-Wächter** | Modul 4 + Push-Alerts | Feedback-Schutz |
 | **M7 – Szenen** | Modul 5 + LLM | Sonntags-Vorbereitung in 2 Minuten |
 | **M8 – worship-keys-Integration** | Setlist/Tonart/Tempo-Sync | Ökosystem |
-| **M9 – Room Tuning** 🟡 | Modul 6: Messen, Mitteln, Auto-EQ, GEQ/FIR/Export, RT60/C50, Sub-Abgleich ✅. Offen: RTA, Kurven-Editor, Persistenz, Direkt-Schreiben ans Pult | PA klingt in jedem Raum gut |
+| **M9 – Room Tuning** 🟢 | Modul 6 inkl. Echtzeit (RTA + Transfer-Funktion) und Senden ans Pult ✅. Offen: Kurven-Editor, Persistenz | PA klingt in jedem Raum gut |
 
 **Lernpfad für Agi (Junior Dev):** M0 → M1 selbst mitbauen (FFT, LUFS verstehen), dann M4 (Netzwerkprotokolle) und erst danach Echtzeit (M6), weil das am schwierigsten ist.
 
@@ -825,6 +930,12 @@ Preset(id, instrument, mic, person?, params_json, version)
 | C50 | Verhältnis früher (0–50 ms) zu später Energie, Maß für Sprachverständlichkeit |
 | Schroeder-Frequenz | Grenze, unterhalb der Raummoden dominieren: f = 2000·√(RT60/V) |
 | Minimalphase-FIR | FIR-Filter ohne zusätzliche Latenz |
+| RTA | Echtzeit-Analyzer: Pegel pro Frequenzband |
+| Transfer-Funktion | Ausgang ÷ Eingang: wie das System das Signal verändert (Pegel, Phase, Zeit) |
+| Kohärenz | 0–100 %: Wie verlässlich die Messung gerade ist |
+| Sidechain / Ducking | Ein Kanal steuert den Kompressor eines anderen (z. B. Kick drückt Bass kurz weg) |
+| Maskierung | Zwei Instrumente überdecken sich im selben Frequenzbereich |
+| Pre-Fader | Abgriff vor dem Fader, die Faderstellung ist darin nicht enthalten |
 
 ---
 
@@ -840,6 +951,12 @@ Preset(id, instrument, mic, person?, params_json, version)
 - ITU-R BS.1770 (Loudness): https://www.itu.int/rec/R-REC-BS.1770
 - EBU R128: https://tech.ebu.ch/publications/r128
 - HouseCurve (Analyse für Modul 6): https://housecurve.com · Handbuch https://housecurve.com/help · Tuning https://housecurve.com/docs/tuning/equalization · Dateiformate https://housecurve.com/docs/manual/file_formats
+- Allen & Heath SQ MIDI Protocol Firmware V1.6: https://support.allen-heath.com/hc/en-gb/articles/47793519540497-SQ-MIDI-Protocol-Firmware-V1-6
+- Rational Acoustics, Measurement 101 (RTA vs. Transfer-Funktion, Kohärenz): https://support.rationalacoustics.com/support/solutions/articles/150000190431-measurement-101-types-of-measurement
+- ProSoundWeb, RTA & Rosa Rauschen: https://www.prosoundweb.com/?p=38796
+- Reiss/De Man, Intelligent Music Production (Frontiers 2018): https://www.frontiersin.org/articles/10.3389/fdigh.2018.00017/pdf
+- Church Sound Crew, Sidechain im Gottesdienst: https://www.skool.com/church-audio-engineers-2670/sidechain-compression-the-secret-sauce-nobody-talks-about-in-church-mixing
+- X32 OSC (Patrick-Gilles Maillot): https://www.sites.google.com/site/patrickmaillot/x32
 - RBJ Audio EQ Cookbook (Biquads): https://www.w3.org/TR/audio-eq-cookbook/
 - Farina, A. (2000): Simultaneous measurement of impulse response and distortion with a swept-sine technique (AES)
 - Marktüberblick KI-Mixing/Mastering 2026: https://www.roexaudio.com/blog/best-ai-mixing-and-mastering-services-compared-(2026) · https://mixinggpt.com/blog/best-ai-mixing-plugins-2026

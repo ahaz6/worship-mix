@@ -9,6 +9,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Status } from "@/components/common/status";
+import { ApplyToConsole } from "@/components/console/apply-to-console";
+import { RealtimeView } from "@/components/tuning/realtime-view";
 import { ResponsePlot, type Trace } from "@/components/tuning/response-plot";
 import { recordMeasurement } from "@/lib/recorder";
 import {
@@ -26,7 +28,7 @@ import {
   uploadMeasurement,
 } from "@/lib/tuning";
 
-type Tab = "measure" | "equalize" | "room" | "align";
+type Tab = "realtime" | "measure" | "equalize" | "room" | "align";
 type PlotKind = "magnitude" | "phase" | "group_delay";
 
 const RECORD_SECONDS = 11; // test signal is ~8.1 s; margin for starting playback
@@ -59,8 +61,9 @@ export function RoomTuningView() {
       <div className="tab-row" role="tablist" aria-label="Room tuning steps">
         {(
           [
-            ["measure", "1 · Measure"],
-            ["equalize", "2 · Equalize"],
+            ["realtime", "Real time"],
+            ["measure", "Sweep"],
+            ["equalize", "Equalize"],
             ["room", "Room acoustics"],
             ["align", "Sub alignment"],
           ] as const
@@ -73,6 +76,7 @@ export function RoomTuningView() {
 
       {error ? <Status tone="danger" state="Problem" detail={error} /> : null}
 
+      {tab === "realtime" ? <RealtimeView onSaved={add} /> : null}
       {tab === "measure" ? (
         <MeasureStep
           items={items}
@@ -448,8 +452,9 @@ function EqualizeStep({
             <GeqBars bands={result.geq31} />
           </section>
           <section className="panel-card">
-            <span className="section-title">Export</span>
+            <span className="section-title">Console &amp; export</span>
             <div className="btn-row">
+              <ApplyToConsole changes={result.console_changes.filter((c) => c.param !== "geq")} label="Send PEQ to main" />
               {EXPORTS.map((x) => (
                 <button key={x.id} type="button" className="btn" onClick={() => active && void exportFilters(active, opts, x.id).catch(() => setError("Export failed."))}>
                   {x.label}

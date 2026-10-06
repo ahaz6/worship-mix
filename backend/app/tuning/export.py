@@ -75,3 +75,15 @@ def console_plan(filters: list[Filter], geq: list[dict], console: str, preamp_db
         plan["peq_steps"].append("SQ: processing is not exposed over MIDI. Enter these values on the LR PEQ/GEQ "
                                  "by hand (SQ-Rack: via SQ MixPad or SQ4You).")
     return plan
+
+
+def room_eq_changes(filters: list[Filter], geq: list[dict], main_bands: int = 6) -> list:
+    """Room correction as console changes: main PEQ bands first, GEQ for the rest/backup."""
+    from app.consoles.changes import Change
+
+    changes = [Change("main", "peq", {"band": i, "type": f.type, "freq": f.freq, "gain_db": f.gain_db, "q": f.q})
+               for i, f in enumerate(filters[:main_bands], start=1)]
+    if len(filters) > main_bands or any(b["gain_db"] for b in geq):
+        changes.append(Change("main", "geq", {"bands": geq},
+                              note="Use either the PEQ bands or the GEQ - not both."))
+    return changes

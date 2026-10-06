@@ -38,7 +38,8 @@ DIE 6 MODULE (Details in WORSHIP_MIX.md Kap. 6–10 und 11a)
 3. Virtual Soundcheck Assistant – Multitrack → Kanal-Vorschläge → Pult
 4. Feedback- & Pegel-Wächter – Echtzeit, WebSocket, Push-Alerts
 5. KI-Szenen- & Preset-Bibliothek – Freitext-Besetzung → Szene
-6. Room Tuning – PA einmessen: Sweep, Mittelung, Auto-EQ (PEQ/GEQ/FIR), RT60/C50, Sub-Abgleich
+6. Room Tuning – PA einmessen: Echtzeit (RTA/Transfer), Sweep, Auto-EQ (PEQ/GEQ/FIR), RT60/C50, Sub-Abgleich
+(3 ist als "Instruments" umgesetzt: Kanal- & Mix-Tuning, Sidechain, Master, Live-USB – Kap. 11b)
 
 HARTE REGELN
 - Sicherheitsregeln aus WORSHIP_MIX.md Kap. 15 sind nicht verhandelbar
@@ -125,11 +126,20 @@ Tempo-Sync für Delays, Song-Snapshots (Ruhig/Build/Voll).
 Lies WORSHIP_MIX.md Kap. 11a (inkl. HouseCurve-Recherche). Die Messkette, Auto-EQ,
 Exporte, Raumakustik und Sub-Abgleich existieren und sind getestet.
 Baue die offenen Punkte aus 11a.5:
-1. Echtzeit-RTA (Rosa Rauschen, 1/3-Oktav, Live + Moving-Mic-Mittelung) im Browser.
+1. (erledigt: Echtzeit-RTA/Transfer, Senden ans Pult)
 2. Kurven-Editor (max. 20 Punkte, Drag & Drop, Doppeltipp = löschen, Speichern/Reset).
 3. Messungen in SQLite speichern, Vorher/Nachher-Vergleich im Plot.
 4. Mikro-Kalibrierung im UI (Upload, "None").
 5. "Apply to console": PEQ/GEQ über den ConsoleAdapter auf den Main-Bus schreiben
    (X32 zuerst) – nur mit "Allow writes", Snapshot + Undo, Audit-Log (Kap. 15).
 Erkläre mir dabei, was eine Impulsantwort ist und warum wir Plätze mitteln.
+```
+
+### M10 – Instruments im echten Gottesdienst kalibrieren
+```
+Lies WORSHIP_MIX.md Kap. 11b. Ich habe eine echte Soundcheck-Aufnahme (Mehrspur-WAV
+vom SQ-Rack USB). Analysiere sie, zeige mir, welche Empfehlungen daneben liegen, und
+justiere Profile/Schwellen in backend/app/instruments/ nach – mit neuen Tests.
+Danach: X32-OSC-Adressen gegen Maillots Doku prüfen und TODO(verify) auflösen.
+Optional: WebSocket statt Polling für live/latest, Peak-Hold-Meter pro Kanal.
 ```

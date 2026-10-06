@@ -43,6 +43,7 @@ export const equalizeSchema = z.object({
   rms_error_after_db: num,
   within_tolerance_pct: num,
   console_plan: z.object({ console: z.string(), peq_steps: z.array(z.string()), geq_steps: z.array(z.string()), osc: z.array(z.unknown()) }),
+  console_changes: z.array(z.object({ target: z.string(), param: z.string(), value: z.record(z.string(), z.unknown()), note: z.string().optional() })),
 });
 
 export const targetsSchema = z.object({
@@ -171,4 +172,15 @@ export async function exportFilters(measurementId: string, opts: EqOptions, form
   a.download = name;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+export async function importResponse(label: string, freqs: number[], magnitudeDb: (number | null)[], phaseDeg: (number | null)[], coherence: number[]) {
+  return json(
+    await fetch("/api/tuning/import-response", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ label, freqs, magnitude_db: magnitudeDb, phase_deg: phaseDeg, coherence }),
+    }),
+    measurementSchema,
+  );
 }

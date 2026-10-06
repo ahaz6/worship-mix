@@ -93,3 +93,97 @@ def x32_main_peq_messages(filters) -> list[dict]:
                  {"address": f"{base}/g", "value": round(x32_gain(f.gain_db), 4)},
                  {"address": f"{base}/q", "value": round(x32_q(f.q), 4)}]
     return msgs
+
+
+# --- Generic OSC client with query support --------------------------------------
+# X32 answers a message that has *no arguments* with the current value.
+import socket
+
+from pythonosc.osc_message import OscMessage
+from pythonosc.osc_message_builder import OscMessageBuilder
+
+
+class OscClient:
+    def __init__(self, host: str, port: int, timeout: float = 0.3) -> None:
+        self.addr = (host, port)
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sock.settimeout(timeout)
+
+    @staticmethod
+    def _build(address: str, value=None) -> bytes:
+        b = OscMessageBuilder(address=address)
+        if value is not None:
+            b.add_arg(value)
+        return b.build().dgram
+
+    def send(self, address: str, value) -> None:
+        self.sock.sendto(self._build(address, value), self.addr)
+
+    def query(self, address: str):
+        self.sock.sendto(self._build(address), self.addr)
+        try:
+            while True:
+                data, _ = self.sock.recvfrom(4096)
+                msg = OscMessage(data)
+                if msg.address == address:
+                    return msg.params[0] if msg.params else None
+        except TimeoutError:
+            return None
+
+    def close(self) -> None:
+        self.sock.close()
+
+
+# --- Semantic change -> X32 OSC --------------------------------------------------
+# TODO(verify): enum orders and value laws against Patrick-Gilles Maillot's
+# "Unofficial X32/M32 OSC Remote Protocol" before writing to a real console.
+X32_RATIOS = [1.1, 1.3, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 7.0, 10.0, 20.0, 100.0]
+
+
+def _lin(v: float, lo: float, hi: float) -> float:
+    return float((max(lo, min(hi, v)) - lo) / (hi - lo))
+
+
+def _log(v: float, lo: float, hi: float) -> float:
+    return float(math.log(max(lo, min(hi, v)) / lo) / math.log(hi / lo))
+
+
+def x32_messages(change) -> list[tuple[str, float | int | str]]:
+    """Translate one Change into X32 OSC (address, value) pairs."""
+    v = change.value
+    if change.target == "main":
+        base = "/main/st"
+    else:
+        base = f"/ch/{change.channel:02d}"
+    p = change.param
+    if p == "trim" and change.channel:
+        return [(f"{base}/preamp/trim", _lin(v["db"], -18, 18))]
+    if p == "hpf" and change.channel:
+        return [(f"{base}/preamp/hpf", _log(v["freq"], 20, 400)), (f"{base}/preamp/hpon", 1 if v.get("on", True) else 0)]
+    if p == "peq":
+        return [(f"{base}/eq/on", 1),
+                (f"{base}/eq/{v['band']}/type", X32_EQ_TYPE.get(v["type"], 2)),
+                (f"{base}/eq/{v['band']}/f", x32_freq(v["freq"])),
+                (f"{base}/eq/{v['band']}/g", x32_gain(v["gain_db"])),
+                (f"{base}/eq/{v['band']}/q", x32_q(v["q"]))]
+    if p == "gate" and change.channel:
+        return [(f"{base}/gate/on", 1), (f"{base}/gate/mode", 3),
+                (f"{base}/gate/thr", _lin(v["threshold_db"], -80, 0)),
+                (f"{base}/gate/range", _lin(v["range_db"], 3, 60)),
+                (f"{base}/gate/attack", _lin(v["attack_ms"], 0, 120)),
+                (f"{base}/gate/hold", _log(max(v["hold_ms"], 0.02), 0.02, 2000)),
+                (f"{base}/gate/release", _log(v["release_ms"], 5, 4000))]
+    if p == "comp":
+        ratio_idx = min(range(len(X32_RATIOS)), key=lambda i: abs(X32_RATIOS[i] - v["ratio"]))
+        msgs = [(f"{base}/dyn/on", 1), (f"{base}/dyn/mode", 0),
+                (f"{base}/dyn/thr", _lin(v["threshold_db"], -60, 0)),
+                (f"{base}/dyn/ratio", ratio_idx),
+                (f"{base}/dyn/attack", _lin(v["attack_ms"], 0, 120)),
+                (f"{base}/dyn/release", _log(v["release_ms"], 5, 4000)),
+                (f"{base}/dyn/mgain", _lin(v.get("makeup_db", 0), 0, 24))]
+        if v.get("key_channel"):
+            msgs.append((f"{base}/dyn/keysrc", int(v["key_channel"])))  # 1..32 = input channel (verify)
+        return msgs
+    if p == "name" and change.channel:
+        return [(f"{base}/config/name", str(v["name"])[:12])]
+    return []  # e.g. GEQ lives in an FX slot on X32 -> manual

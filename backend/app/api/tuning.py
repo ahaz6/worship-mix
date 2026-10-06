@@ -14,9 +14,16 @@ from app.tuning.acoustics import analyze_room
 from app.tuning.alignment import align, match_levels, suggest_crossover
 from app.tuning.biquad import Filter
 from app.tuning.eq import EqSettings, fit_peq, geq31, min_phase_fir
-from app.tuning.export import camilladsp_yaml, console_plan, impulse_wav, minidsp_biquads, peq_text
+from app.tuning.export import (
+    camilladsp_yaml,
+    console_plan,
+    impulse_wav,
+    minidsp_biquads,
+    peq_text,
+    room_eq_changes,
+)
 from app.tuning.measure import MeasurementError, average, measure
-from app.tuning.signals import FS, pink_noise, test_signal
+from app.tuning.signals import FS, PINK_PERIOD, pink_noise, pink_period, test_signal
 from app.tuning.targets import (
     BUILTIN,
     TOLERANCE_DB,
@@ -44,6 +51,47 @@ def get_test_signal() -> Response:
 @router.get("/pink-noise.wav")
 def get_pink_noise(seconds: float = 60.0) -> Response:
     return _wav(pink_noise(min(seconds, 300.0)), "WorshipMix-PinkNoise.wav")
+
+
+@router.get("/pink-period.f32")
+def get_pink_period() -> Response:
+    """Raw little-endian float32 samples of one period (48 kHz) for the browser analyzer."""
+    return Response(pink_period().astype("<f4").tobytes(), media_type="application/octet-stream",
+                    headers={"X-Sample-Rate": str(FS), "X-Period": str(PINK_PERIOD), "Cache-Control": "max-age=86400"})
+
+
+class ImportResponseIn(BaseModel):
+    label: str = "Real-time capture"
+    freqs: list[float]
+    magnitude_db: list[float | None]
+    phase_deg: list[float | None] | None = None
+    coherence: list[float | None] | None = None
+
+
+@router.post("/import-response")
+def import_response(body: ImportResponseIn) -> dict:
+    """Store a browser real-time transfer function as a measurement (usable by Equalize)."""
+    from app.tuning.measure import Measurement, freq_grid
+
+    f = np.asarray(body.freqs, float)
+    if len(f) < 8 or np.any(np.diff(f) <= 0):
+        raise HTTPException(400, "Frequencies must ascend.")
+
+    def col(v: list | None, fill: float) -> np.ndarray:
+        a = np.array([fill if x is None else x for x in (v or [fill] * len(f))], float)
+        return a
+
+    grid = freq_grid()
+    lg = np.log(grid)
+    lf = np.log(f)
+    mag = np.interp(lg, lf, col(body.magnitude_db, -120.0))
+    phase = np.interp(lg, lf, col(body.phase_deg, 0.0))
+    coh = np.clip(np.interp(lg, lf, col(body.coherence, 0.0)), 0, 0.9999)
+    snr = 10 * np.log10(coh / (1 - coh) + 1e-12)        # coherence -> SNR
+    snr[(grid < f[0]) | (grid > f[-1])] = -99.0
+    m = Measurement(grid, mag, phase, np.zeros_like(grid), snr, np.zeros(1024), FS, 0.0,
+                    meta={"source": "realtime"})
+    return _summary(store.add(body.label, m, {}))
 
 
 @router.get("/targets")
@@ -185,6 +233,7 @@ def _equalize(body: EqualizeIn) -> tuple[dict, dict]:
         "rms_error_after_db": round(r["rms_error_after_db"], 2),
         "within_tolerance_pct": round(r["within_tolerance_pct"], 1),
         "console_plan": console_plan(r["filters"], geq, body.console, preamp),
+        "console_changes": [c.to_dict() for c in room_eq_changes(r["filters"], geq)],
     }
     return out, {"filters": r["filters"], "grid": grid, "correction": r["correction_db"], "preamp": preamp}
 

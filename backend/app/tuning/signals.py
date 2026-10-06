@@ -72,18 +72,33 @@ def test_signal(layout: SignalLayout = LAYOUT) -> np.ndarray:
     return out
 
 
-def pink_noise(seconds: float = 60.0, fs: int = FS, level_dbfs: float = -18.0, seed: int = 1) -> np.ndarray:
-    """Pink noise (-3 dB/octave), 20 Hz - 20 kHz, RMS normalised to level_dbfs."""
-    n = int(seconds * fs)
+PINK_PERIOD = 65536  # 1.365 s at 48 kHz -> 0.73 Hz resolution
+
+
+def pink_period(n: int = PINK_PERIOD, fs: int = FS, level_dbfs: float = -18.0, seed: int = 7) -> np.ndarray:
+    """One period of *periodic* pink noise (exact 1/f power per FFT bin, random phase).
+
+    Because the sequence is known and repeats exactly every n samples, any
+    device can measure a true transfer function against it (no reference cable
+    needed): average whole periods, divide by the known spectrum. Same idea as
+    "periodic noise" in REW. 20 Hz - 20 kHz band-limited.
+    """
     rng = np.random.default_rng(seed)
-    spec = np.fft.rfft(rng.standard_normal(n))
     f = np.fft.rfftfreq(n, 1 / fs)
-    shape = np.zeros_like(f)
+    mag = np.zeros_like(f)
     band = (f >= 20) & (f <= 20000)
-    shape[band] = 1 / np.sqrt(f[band])
-    x = np.fft.irfft(spec * shape, n)
+    mag[band] = 1 / np.sqrt(f[band])
+    spec = mag * np.exp(2j * np.pi * rng.random(len(f)))
+    x = np.fft.irfft(spec, n)
     x /= np.sqrt(np.mean(x**2)) + 1e-20
-    return _fade(x * 10 ** (level_dbfs / 20), fs)
+    return x * 10 ** (level_dbfs / 20)
+
+
+def pink_noise(seconds: float = 60.0, fs: int = FS, level_dbfs: float = -18.0) -> np.ndarray:
+    """Periodic pink noise, tiled to `seconds` (loop-friendly: ends on a period boundary)."""
+    period = pink_period(fs=fs, level_dbfs=level_dbfs)
+    reps = max(1, int(np.ceil(seconds * fs / len(period))))
+    return np.tile(period, reps)
 
 
 def _fade(x: np.ndarray, fs: int, ms: float = 10.0) -> np.ndarray:
