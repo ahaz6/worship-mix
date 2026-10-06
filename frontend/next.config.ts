@@ -9,7 +9,9 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [{ source: "/api/:path*", destination: `${backend}/api/:path*` }];
   },
-  allowedDevOrigins: ["localhost", "127.0.0.1", "*.local", "192.168.0.0/16", "10.0.0.0/8", "172.16.0.0/12"],
+  // Phones on the LAN (mic needs HTTPS: npm run dev:https). Next matches hostnames
+  // with "*" per dot segment, CIDR like "192.168.0.0/16" is NOT supported.
+  allowedDevOrigins: ["127.0.0.1", "*.local", "192.168.*.*", "10.*.*.*", "172.*.*.*"],
 };
 
 export default nextConfig;
