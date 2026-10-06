@@ -133,6 +133,23 @@ def test_api_demo_and_upload(band):
     c.post("/api/instruments/live/stop")
 
 
+def test_live_start_with_too_few_inputs_is_503(monkeypatch):
+    """A laptop mic (1 input) with a 2-channel mapping must give a clear 503, not a 500."""
+    import sys
+    import types
+
+    fake_sd = types.ModuleType("sounddevice")
+    fake_sd.PortAudioError = type("PortAudioError", (Exception,), {})
+    fake_sd.query_devices = lambda device=None, kind=None: {"name": "MacBook Mic", "max_input_channels": 1}
+    monkeypatch.setitem(sys.modules, "sounddevice", fake_sd)
+
+    mapping = [{"input_index": 0, "profile": "kick", "name": "Kick"},
+               {"input_index": 1, "profile": "lead_vocal_m", "name": "Vox"}]
+    r = TestClient(app).post("/api/instruments/live/start", json={"mapping": mapping})
+    assert r.status_code == 503
+    assert "only 1 input" in r.json()["detail"]
+
+
 def test_every_profile_runs_without_errors():
     rng = np.random.default_rng(1)
     x = rng.standard_normal(FS * 2) * 0.05

@@ -105,9 +105,20 @@ class LiveSession:
             raise RuntimeError("No audio input available here. Run the backend on the FOH laptop "
                                "(pip install -e '.[live]') or upload multitrack files instead.") from e
         n_ch = max(m.input_index for m in self.mapping) + 1
-        self._stream = sd.InputStream(device=self.device, channels=n_ch, samplerate=self.fs,
-                                      callback=lambda data, frames, t, status: self.feed(data.copy()))
-        self._stream.start()  # type: ignore[attr-defined]
+        try:
+            info = sd.query_devices(self.device, "input")
+        except (ValueError, sd.PortAudioError) as e:  # unknown device / no input at all
+            raise RuntimeError(f"Audio input not found ({e}). Pick the console USB interface.") from e
+        # e.g. a laptop's built-in mic has 1 input, but the mapping needs one per console channel
+        if info["max_input_channels"] < n_ch:
+            raise RuntimeError(f"'{info['name']}' has only {info['max_input_channels']} input(s), "
+                               f"but the mapping uses {n_ch}. Pick the console USB interface.")
+        try:
+            self._stream = sd.InputStream(device=self.device, channels=n_ch, samplerate=self.fs,
+                                          callback=lambda data, frames, t, status: self.feed(data.copy()))
+            self._stream.start()  # type: ignore[attr-defined]
+        except sd.PortAudioError as e:  # e.g. unsupported sample rate
+            raise RuntimeError(f"Could not open '{info['name']}': {e}") from e
         self._thread = threading.Thread(target=self._loop, daemon=True)
         self._thread.start()
 
