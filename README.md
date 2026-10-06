@@ -30,11 +30,15 @@ uvicorn app.main:app --reload
 # Tests
 pytest
 
-# Alles per Docker
+# Frontend (zweites Terminal)
+cd ../frontend && npm install && npm run dev
+# → http://localhost:3000
+
+# Alles per Docker (Backend :8000, Frontend :3000)
 docker compose up --build
 ```
 
 Optionale Extras: `pip install -e ".[mastering,stems,live]"`
 
 ## Design
-Das UI übernimmt das Design von [worship-keys](https://github.com/ahaz6/worship-keys), siehe `frontend/README.md`.
+Worship Mix gehört zur **Worship Suite** und nutzt Stack und Design von [worship-keys](https://github.com/ahaz6/worship-keys): Next.js 16, React 19, TypeScript, schwarze Flächen mit Violett und Blau als Akzent, Geist-Fonts, UI auf Englisch. Details stehen in [docs/DESIGN.md](docs/DESIGN.md) und [docs/Design-Art.md](docs/Design-Art.md).

@@ -5,4 +5,9 @@ services:
     environment:
       WM_PRESET_DIR: /presets
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-  # frontend: wird in M0 im Stack von worship-keys ergänzt
+  frontend:
+    build: { context: ., dockerfile: frontend/Dockerfile }
+    ports: ["3000:3000"]
+    environment:
+      WM_BACKEND_URL: http://backend:8000
+    depends_on: [backend]

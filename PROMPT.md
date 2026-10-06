@@ -21,13 +21,16 @@ KONTEXT
    Source of Truth (Vision, 5 Module, Architektur, Audio-Wissen, Sicherheitsregeln,
    API, Datenmodell, Roadmap).
 2. Lies CLAUDE.md für Arbeitsregeln.
-3. UI-DESIGN: Klone/lies https://github.com/ahaz6/worship-keys.
-   - Ermittle Frontend-Stack, Design-Tokens (Farben, Fonts, Abstände, Radien,
-     Schatten, Dark Mode), Komponenten und Icons.
-   - Baue das Frontend von Worship Mix im SELBEN Stack und SELBEN Design.
-   - Dokumentiere die Übernahme in docs/DESIGN.md.
-   - Erfinde KEINE eigene Farbwelt. Wenn das Repo nicht erreichbar ist: stoppe
-     und frag mich nach den Dateien.
+3. UI-DESIGN: Worship Mix gehört zur Worship Suite (Worship Loops, Worship Keys).
+   - Lies docs/Design-Art.md vollständig (verbindliche Art Direction der Suite).
+   - Referenz-Code: https://github.com/ahaz6/worship-keys (app/globals.css,
+     components/brand/brand-mark.tsx, components/common/status.tsx).
+   - Stack ist bereits gesetzt: Next.js 16, React 19, TypeScript strict, reines CSS
+     mit --wm-* Tokens (Werte identisch zu --wk-*), Geist Sans/Mono, Zod, Vitest.
+   - Drei-Bereich-Shell: links Brand + Modul-Navigation, Mitte Stage, rechts
+     Console + Live Guard + Kill-Switch.
+   - SICHTBARE UI KOMPLETT ENGLISCH (auch Backend-Tipp-Texte). Mit mir sprichst du Deutsch.
+   - Keine neuen Farben oder Grautöne erfinden, nur vorhandene Tokens verwenden.
 
 DIE 5 MODULE (Details in WORSHIP_MIX.md Kap. 6–10)
 1. Mix Analyzer & Coach – Metriken + Tipps (problem/action/why)
@@ -47,13 +50,13 @@ HARTE REGELN
 - Kleine, überprüfbare Schritte. Nach jedem Meilenstein: Tests grün, kurze
   Zusammenfassung, dann auf mein OK warten.
 
-STARTE MIT MEILENSTEIN M0:
-- Prüfe das bestehende Gerüst (backend/, frontend/, docker-compose.yml).
-- Richte das Frontend im worship-keys-Stil ein (Layout, Navigation mit den 5 Modulen,
-  Dark Mode, Platzhalter-Seiten).
-- Backend: FastAPI läuft, /api/health, MockAdapter, pytest + ruff in CI (GitHub Actions).
-- `docker compose up` startet alles.
-Zeig mir danach, wie ich es lokal starte, und schlage den nächsten Schritt vor.
+M0 IST ERLEDIGT (Shell, Analyzer-Screen, Backend-Kern, 9 + 3 Tests grün).
+Offen aus M0: echtes rundes Produktlogo (Design-Art 3.1), Favicon/App-Icons.
+
+STARTE MIT MEILENSTEIN M1:
+- Prüfe zuerst `cd backend && pytest` und `cd frontend && npm run verify`.
+- Danach Modul 1 fertigstellen (siehe Folge-Prompt M1).
+Zeig mir, wie ich es lokal starte, und erkläre jeden Schritt kurz.
 ```
 
 ---
@@ -64,7 +67,7 @@ Zeig mir danach, wie ich es lokal starte, und schlage den nächsten Schritt vor.
 ```
 Setze Modul 1 (WORSHIP_MIX.md Kap. 6) um: Upload, Metriken (LUFS, True Peak, LRA,
 PLR, Bänder, Stereo/Korrelation, Clipping), Regel-Engine mit dem Startset an Regeln,
-Tipp-Format wie spezifiziert, Frontend mit LevelMeter, SpectrumView und TipCards.
+Tipp-Format wie spezifiziert, Frontend: SpectrumView (Canvas) und Band-Balance ergänzen; LevelMeter/TipCard existieren schon.
 Tests: Sinus/Rosa Rauschen mit bekannten Werten. Erkläre mir FFT und K-Gewichtung kurz.
 ```
 

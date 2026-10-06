@@ -82,8 +82,8 @@
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│                    Frontend (Web/PWA)                        │
-│        UI-Design von worship-keys · Tablet-/Handy-tauglich   │
+│        Frontend: Next.js 16 / React 19 / TS (PWA)            │
+│        Worship-Suite-Design · Tablet-/Handy-tauglich         │
 └───────────────▲──────────────────────────────▲───────────────┘
                 │ REST (Uploads, Jobs)         │ WebSocket (Live-Meter, Alerts)
 ┌───────────────┴──────────────────────────────┴───────────────┐
@@ -133,8 +133,8 @@
 | Jobs | **arq** (Redis) oder **RQ** | einfach |
 | DB | **SQLite** (lokal), Postgres (Cloud) via SQLModel | |
 | LLM | **Claude API** (optional, per Env-Var) | Erklärungen, Szenen aus Text |
-| Frontend | **Stack von worship-keys übernehmen** (siehe Kap. 5) | einheitliches Look & Feel |
-| Visualisierung | Canvas/WebGL für Spektrum & Meter | Performance |
+| Frontend | **Next.js 16, React 19, TypeScript, reines CSS, Zod** (wie worship-keys, Kap. 5.1) | einheitlich in der Worship Suite |
+| Visualisierung | Canvas für Spektrum & Meter, CSS für statische Meter | Performance |
 | Tests | **pytest**, synthetische Testsignale | reproduzierbar |
 | Packaging | Docker + docker compose | Ein Befehl zum Starten |
 
@@ -142,45 +142,115 @@
 
 ## 5. UI-Design: Übernahme von worship-keys
 
-**Quelle:** https://github.com/ahaz6/worship-keys
+**Quelle:** https://github.com/ahaz6/worship-keys. Verbindlich sind `Design-Art.md` (liegt als Kopie in `docs/Design-Art.md`) und `app/globals.css`.
 
-Worship Mix soll **wie eine Schwester-App von worship-keys** aussehen und sich auch so anfühlen.
+Worship Mix ist das nächste Produkt der **Worship Suite** (Worship Loops, Worship Keys, Worship Mix). Es muss sofort als Teil der Familie erkennbar sein, darf aber kein umbenannter Klon sein.
 
-**Pflicht-Schritte für den Agenten (bevor Frontend-Code entsteht):**
+> Leitidee der Suite: **„A calm, premium, black-led worship workspace with restrained violet and blue light.“**
 
-1. Repo `ahaz6/worship-keys` klonen bzw. lesen.
-2. Den Frontend-Stack ermitteln (Framework, Build-Tool, Styling: Tailwind/CSS-Vars/Styled Components ...) und **denselben Stack** für `frontend/` verwenden.
-3. Design-Tokens extrahieren und in `frontend/src/styles/tokens.css` (bzw. Tailwind-Config) übernehmen:
-   - Farben (Hintergrund, Flächen, Primär/Akzent, Text, Erfolg/Warnung/Fehler)
-   - Typografie (Fonts, Größen, Gewichte)
-   - Abstände, Radien, Schatten
-   - Dark/Light-Mode-Verhalten
-4. Wiederverwendbare Komponenten übernehmen oder nachbauen: Buttons, Cards, Navigation, Header, Modals, Inputs, Slider.
-5. Icons und Illustrationsstil übernehmen, ebenso Animationen und Übergänge.
-6. In `docs/DESIGN.md` dokumentieren: *Was wurde von worship-keys übernommen, was ist neu?*
+### 5.1 Stack (identisch zu worship-keys)
 
-**Neue, Worship-Mix-spezifische Komponenten (im worship-keys-Stil gestaltet):**
-
-| Komponente | Zweck |
+| Bereich | Wahl |
 |---|---|
-| `LevelMeter` | Peak/RMS/LUFS-Meter mit Peak-Hold, Farbzonen grün/gelb/rot |
-| `SpectrumView` | Echtzeit-/Offline-Spektrum, log. Frequenzachse 20 Hz–20 kHz |
-| `MaskingHeatmap` | Instrument × Frequenzband, Konflikte hervorgehoben |
-| `TipCard` | Ein Tipp: Problem → Lösung → *Warum*, Buttons „Anwenden“/„Ignorieren“ |
-| `ChannelStrip` | Gain, HPF, 4-Band-EQ, Comp, Fader (vom Pult gespiegelt) |
-| `FeedbackAlert` | Großer, unübersehbarer Alarm mit Frequenz + Kanal |
-| `LoudnessTargetPicker` | Spotify/Apple/YouTube/Livestream-Ziele |
-| `ConsoleConnector` | Pult wählen, IP eingeben, Verbindung testen |
-| `BandLineupBuilder` | Besetzung per Drag & Drop oder Freitext |
+| Framework | **Next.js 16 (App Router), React 19, TypeScript 5.9** (strict, `noUncheckedIndexedAccess`) |
+| Styling | **Reines CSS** in `app/globals.css` mit CSS-Variablen, kein Tailwind |
+| Fonts | **Geist Sans** (UI) und **Geist Mono** (Zahlen, dB, LUFS, Hz) über `next/font/google` |
+| Validierung | **Zod 4** für alle Daten vom Backend |
+| Tests | **Vitest** (Unit), **Playwright** (E2E, später) |
+| Lint | ESLint 9 mit `eslint-config-next` |
+| Node | ≥ 22.13 |
+| Pfad-Alias | `@/*` |
 
-**UX-Regeln:**
+### 5.2 Design-Tokens
 
-- **FOH-tauglich:** Große Touch-Ziele (≥ 44 px), hoher Kontrast und ein Dark Mode als Standard (dunkler Saal).
-- **Mobile-first:** Agi steht oft mit Tablet oder Handy an der Bühne.
-- **Ein Alarm pro Bildschirm.** Kritische Live-Warnungen überdecken alles andere.
-- **Deutsch als Standardsprache**, i18n vorbereitet (Englisch, Tamil).
+Die Werte sind **identisch** zu worship-keys (Design-Art.md 5.3), nur das Präfix ändert sich zu `--wm-`:
 
-> ⚠️ Falls worship-keys nicht erreichbar ist: Tokens vorerst in `tokens.css` als Platzhalter lassen und als TODO markieren. **Keine eigene Fantasie-Farbwelt erfinden.**
+```css
+:root {
+  color-scheme: dark;
+  --wm-bg-deep: #09090c;   --wm-bg: #0d0d12;
+  --wm-panel: #121216;     --wm-panel-raised: #17171e;  --wm-panel-active: #20202a;
+  --wm-text: #efeff4;      --wm-text-soft: #b5b3c1;     --wm-text-muted: #85858f;  --wm-text-faint: #62626c;
+  --wm-line: #292931;      --wm-line-strong: #353541;
+  --wm-violet: #7668b7;    --wm-violet-bright: #9d8cff; --wm-indigo: #4e5fc6;      --wm-blue: #5d7fe6;
+  --wm-cyan-muted: #5b929d;
+  --wm-success: #67a89e;   --wm-warning: #c89b61;       --wm-danger: #c76f7b;
+  --wm-radius-control: 9px; --wm-radius-card: 14px; --wm-radius-modal: 20px;
+  --wm-motion: 170ms; --wm-ease: cubic-bezier(0.32, 0.72, 0.35, 1);
+}
+```
+
+**Hintergrund:** Schwache radiale Violett/Blau-Lichtfelder über fast schwarzem Verlauf und ein statisches, kaum sichtbares Sternenfeld (Opacity 0.06, nie animiert).
+
+**Farbbedeutung, übertragen auf Mixing:**
+
+| Farbe | Worship Keys | Worship Mix |
+|---|---|---|
+| Violett | Primäraktion, aktive Tonart | Primäraktion, aktives Modul, Zielwert-Markierung (LUFS-Ziel) |
+| Blau/Indigo | MIDI-Aktivität, vorbereitet | Info-Tipps, Pult-Aktivität, vorbereitete Szene |
+| Gedämpftes Cyan/Grün | verbunden/bereit | Pult verbunden, Meter im grünen Bereich |
+| Orange | Warnung | Tipp „Check“, Meter heiß, Maskierung |
+| Rot | Fehler, destruktiv | Tipp „Fix“, Clipping, **Feedback-Alarm**, Kill-Switch |
+
+Farbe ist **nie** die einzige Information. Es gibt immer auch Text oder ein Symbol, z. B. `● Connected — SQ-Rack 192.168.1.70`.
+
+### 5.3 Typografie
+- Labels: 10–11 px, uppercase, Tracking 0.16–0.17 em (`.label`, `.section-title`)
+- Technische Werte (dB, LUFS, Hz, Kanalnummern): **Geist Mono**, `tabular-nums`
+- Modultitel: `clamp(24px, 2.6vw, 32px)`
+- Live-Information (z. B. Feedback-Frequenz): groß, gut lesbar aus zwei Metern Entfernung
+
+### 5.4 Layout: Shell mit drei Bereichen
+
+```text
+┌──────────────────┬────────────────────────────────┬───────────────────┐
+│ Brand            │ Stage: aktives Modul           │ Console           │
+│ WORSHIP / MIX    │ (Analyzer, Mastering, …)       │ Verbindung, Write │
+│ Modul-Navigation │                                │ Live Guard        │
+│ 01–05            │                                │ Kill-Switch       │
+└──────────────────┴────────────────────────────────┴───────────────────┘
+  268 px            flexibel, min. 560 px            300 px
+```
+
+- **Linke Rail:** Statt der Setlist von Worship Keys steht hier die Modul-Navigation (`01 Mix Analyzer` … `05 Scenes`).
+- **Rechte Rail:** Pult und Sicherheit. Der Kill-Switch ist **immer** sichtbar.
+- **≤ 1180 px:** Die rechte Rail wandert unter die Stage.
+- **≤ 820 px (Handy/Tablet hochkant):** Alles einspaltig, die Navigation wird horizontal scrollbar.
+- Touch-Ziele mindestens 44 × 44 px, `prefers-reduced-motion` wird respektiert.
+
+### 5.5 Brand
+- Wortmarke zweizeilig: `WORSHIP` / `MIX`, Großbuchstaben, Verlauf von fast Weiß zu hellem Violett und Blau (wie `BrandMark` in worship-keys).
+- **Logo:** Ein eigenes rundes Produktlogo ist Pflicht (Design-Art 3.1). Aktuell gibt es nur einen Platzhalter (stilisierte Fader im Kreis). **TODO:** `Worship Mix Icon.png` erstellen, nach `public/worship-mix-icon.png` legen, Favicon und App-Icons (`app/icon.png`, `app/apple-icon.png`) ableiten.
+
+### 5.6 Übernommene Komponenten
+`BrandMark`, `Status` (Dot + Zustand + Detail), `.btn-primary`, `.btn` (inkl. `tone-quiet`, `tone-danger`, `is-active`), `.panel-card`, `.field`/`.field-head`, `.slider`, Inputs/Selects, `.modal`, `.label`, `.section-title`, `.hint`, `.meta`.
+
+### 5.7 Neue Worship-Mix-Komponenten (gleiche Tokens, neuer Inhalt)
+
+| Komponente | Zweck | Status |
+|---|---|---|
+| `LevelMeter` | LUFS/Peak-Meter mit Zonen grün/orange/rot und violetter Ziel-Markierung | ✅ |
+| `TipCard` | Problem → Aktion → *Why*, linke Kante in Severity-Farbe | ✅ |
+| `FeedbackAlert` | Großer, statischer Alarm unten (kein Pulsieren) | ✅ |
+| `Metric` | Kennzahl-Kachel (Mono-Wert + Einheit) | ✅ |
+| `SpectrumView` | Spektrum, log. Frequenzachse 20 Hz–20 kHz | ⏳ |
+| `MaskingHeatmap` | Instrument × Band | ⏳ |
+| `ChannelStrip` | Gain/HPF/EQ/Comp, Diff aktuell → Vorschlag | ⏳ |
+| `ConsoleConnector` | Pult wählen, IP, Verbindung testen, „Allow writes“ | 🟡 (UI-Gerüst) |
+| `BandLineupBuilder` | Besetzung für Modul 5 | ⏳ |
+
+### 5.8 Sprache (wichtig!)
+**Die sichtbare UI ist komplett Englisch** (Design-Art 12), auch alle Tipp-Texte, die das Backend liefert. Interne Doku wie diese Datei darf Deutsch sein. Code, Dateinamen und Tests sind Englisch. Der Ton ist kurz, ruhig und konkret, z. B. `Feedback at 2512 Hz. Suggested notch −4 dB.` statt `FFT peak detector triggered`.
+
+### 5.9 Was Worship Mix bewusst NICHT übernimmt
+Setlist-Rail, Nashville- und Key-Anzeigen, Pad-Controls, XY-Pad, Waveform und Stem-Mixer aus Loops. Die Familie entsteht durch Marke, Farbe, Typografie und Ruhe, nicht durch identische Screens.
+
+### 5.10 Qualitätscheck vor Freigabe
+Es gilt die Checkliste aus Design-Art.md 14. Zusätzlich für Worship Mix:
+- [ ] Feedback-Alarm ist aus zwei Metern lesbar und wird von nichts verdeckt.
+- [ ] Kill-Switch ist auf jedem Screen in einem Schritt erreichbar.
+- [ ] Alle Backend-Texte sind Englisch.
+- [ ] Screenshots bei 1440 px, 1024 px und 390 px geprüft.
 
 ---
 
@@ -208,15 +278,17 @@ Ein Mix oder mehrere Stems werden hochgeladen. Die App misst objektiv und übers
 
 ### Tipp-Format (Pflicht)
 
+Texte in `problem`, `action` und `why` sind **Englisch** (UI-Sprache der Suite, Kap. 5.8). Die Regeltabelle unten ist intern auf Deutsch beschrieben.
+
 ```json
 {
   "id": "masking_kick_bass_60_100",
   "severity": "warning",           // info | warning | critical
   "category": "masking",           // loudness | eq | dynamics | stereo | phase | masking
   "targets": ["kick", "bass"],
-  "problem": "Kick und Bass überlagern sich stark zwischen 60 und 100 Hz.",
-  "action": "Am Bass bei ~70 Hz −3 dB (Q 1.5) absenken ODER Sidechain-Kompression vom Kick auf den Bass.",
-  "why": "Beide Instrumente konkurrieren um denselben Tieftonbereich – der Mix wird matschig und verliert Punch.",
+  "problem": "Kick and bass overlap heavily between 60 and 100 Hz.",
+  "action": "Cut the bass by 3 dB around 70 Hz (Q 1.5), or sidechain the bass from the kick.",
+  "why": "Both compete for the same low end, so the mix gets muddy and loses punch.",
   "params": {"eq": [{"freq": 70, "gain_db": -3, "q": 1.5, "type": "bell"}]},
   "confidence": 0.82
 }
@@ -507,7 +579,10 @@ Dieses Kapitel ist das Wissen, auf dem Regeln und Presets aufbauen.
 - **Sprache** (Predigt, Ansagen, Gebet) braucht einen eigenen Szenen-Modus: Musik-FX aus, Sprach-EQ an, ggf. Auto-Mixer für mehrere Sprecher.
 - **Mehrsprachige Gemeinden** (z. B. Tamil/Deutsch): Übersetzer-Kanal, ggf. eigener Bus für Übersetzung.
 - **Livestream-Mix ≠ Saal-Mix:** Im Saal ist das Schlagzeug akustisch laut, im Stream fehlt es. Deshalb braucht der Stream-Bus einen eigenen Mix (Modul 4 überwacht ihn) und Raum-Mics für das Gemeinde-Gefühl.
-- **Musikalische Keys/Tonarten:** Integration mit **worship-keys** (gemeinsames Ökosystem). Songs mit Tonart und Tempo können Delay-Zeiten (Tempo-Sync) und Szenen vorschlagen.
+- **Musikalische Keys/Tonarten:** Integration mit **worship-keys**. Worship Keys speichert Setlists mit Zod-Schema (`lib/storage/schema.ts`): `Song { id, title, artist?, concertKey (0–11), mode, timeSignature, bpm?, notes? }`, `Setlist { id, name, date?, songs[], activeSongId? }`. Worship Mix kann dieses Format importieren (JSON-Export oder Live-Session) und daraus:
+  - Delay-Zeiten per Tempo-Sync berechnen (Viertel = 60000 / BPM ms),
+  - pro Song einen Mix-Snapshot zuordnen (Ruhig, Build, Voll),
+  - beim Songwechsel in Worship Keys (`select-song`, `next-song`) automatisch die passende Szene vorschlagen. Das Umschalten geschieht nie ungefragt, siehe Kap. 15.
 
 ---
 
@@ -594,7 +669,7 @@ Preset(id, instrument, mic, person?, params_json, version)
 
 | Phase | Inhalt | Ergebnis |
 |---|---|---|
-| **M0 – Fundament** | Repo, Docker, FastAPI-Skeleton, Frontend mit worship-keys-Design, Mock-Adapter, CI | App startet, Design steht |
+| **M0 – Fundament** ✅ | Repo, Docker, FastAPI-Skeleton, Next.js-Frontend im Suite-Design (Shell, Analyzer-Screen), Mock-Adapter, CI | App startet, Design steht (offen: echtes Logo) |
 | **M1 – Analyzer** | Modul 1 komplett (ohne Demucs), Tipp-Engine, Report | Erster echter Nutzen |
 | **M2 – Mastering** | Modul 2 inkl. Batch & A/B | Releases mastern |
 | **M3 – Stems** | Demucs-Integration, Maskierungsanalyse | Tiefere Analyse |

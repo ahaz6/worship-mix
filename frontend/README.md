@@ -1,11 +1,11 @@
 # Worship Mix – Frontend
 
-**Design = worship-keys.** Dieses Frontend wird im selben Stack und Design wie
-https://github.com/ahaz6/worship-keys gebaut (siehe `WORSHIP_MIX.md` Kap. 5).
+Next.js 16 · React 19 · TypeScript · reines CSS. Design der Worship Suite (siehe `../docs/Design-Art.md`).
 
-Schritte für den Agenten (Meilenstein M0):
-1. worship-keys lesen → Stack + Design-Tokens + Komponenten ermitteln.
-2. Hier denselben Stack aufsetzen (Platzhalter-Ordner `src/` existiert schon).
-3. `src/styles/tokens.css` mit den echten Tokens füllen.
-4. Navigation: Analyzer · Mastering · Soundcheck · Live · Szenen · Pult.
-5. Übernahme dokumentieren in `docs/DESIGN.md`.
+```bash
+npm install
+npm run dev          # http://localhost:3000  (Backend muss auf :8000 laufen)
+npm run verify       # typecheck + lint + test + build
+```
+
+`/api/*` wird an `WM_BACKEND_URL` (Standard `http://127.0.0.1:8000`) weitergeleitet.
